@@ -388,14 +388,6 @@
     text-align: center;
     min-width: 1.4ch;
   }
-  .edit-hint {
-    position: absolute;
-    top: calc(-3px * var(--card-scale, 1));
-    right: calc(-15px * var(--card-scale, 1));
-    width: calc(13px * var(--card-scale, 1));
-    height: calc(13px * var(--card-scale, 1));
-    color: var(--text-faint);
-  }
   .score-tap:active { opacity: 0.6; }
 
   button.step {
@@ -967,7 +959,6 @@
       '<line x1="4" y1="17.5" x2="12" y2="17.5"/><line x1="15" y1="17.5" x2="20" y2="17.5"/><circle cx="13.5" cy="17.5" r="1.9"/>',
     close: '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
     crown: '<path d="M3.5 8.5 7 11.5 12 5l5 6.5 3.5-3-1.6 9.5H5.1L3.5 8.5z" fill="currentColor" stroke="currentColor" stroke-width="1"/>',
-    pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
     clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>',
     stopwatch: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.3V13l2.4 1.9"/><path d="M9.5 2.3h5"/><path d="M12 2.3V5"/>',
     backspace: '<path d="M9 4.5h11a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H9l-6.5-7.5L9 4.5z"/><path d="M13.5 9.5l5 5"/><path d="M18.5 9.5l-5 5"/>'
@@ -1498,11 +1489,7 @@
       var scoreEl = document.createElement('div');
       scoreEl.className = 'score';
       scoreEl.textContent = p.score;
-      var editHint = document.createElement('span');
-      editHint.className = 'edit-hint';
-      editHint.innerHTML = svgIcon('pencil', 2.2);
       scoreTap.appendChild(scoreEl);
-      scoreTap.appendChild(editHint);
       scoreTap.addEventListener('click', function () { openCalculator(p, scoreEl, 'set'); });
       scoreTap.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') {
