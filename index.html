@@ -706,6 +706,45 @@
   .switch input:checked + .slider::before { transform: translateX(20px); }
   .switch input:active + .slider::before { width: 31px; }
   .switch input:checked:active + .slider::before { transform: translateX(16px); }
+  .switch input:disabled { cursor: default; }
+  .switch input:disabled + .slider { opacity: 0.4; cursor: default; }
+
+  /* ---------- History sheet ---------- */
+  .history-empty {
+    text-align: center;
+    color: var(--text-faint);
+    padding: 48px 0;
+    font-size: 0.95rem;
+  }
+  .history-turn-header {
+    margin: 18px 4px 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.72rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+  }
+  .history-turn-header:first-child { margin-top: 4px; }
+  .history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95rem;
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-label { font-weight: 600; }
+  .history-detail {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+    text-align: right;
+  }
+  .history-detail.history-pos { color: var(--green); }
+  .history-detail.history-neg { color: var(--red); }
 
   [hidden] { display: none !important; }
 </style>
@@ -804,6 +843,19 @@
             <span>Turn tracking</span>
             <label class="switch"><input type="checkbox" id="turnTrackingToggle"><span class="slider"></span></label>
           </div>
+          <div class="setting-row">
+            <span>Advance turn on score change</span>
+            <label class="switch"><input type="checkbox" id="autoAdvanceToggle" disabled><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-card">
+          <div class="setting-row">
+            <span>History</span>
+            <button class="pill-btn" id="openHistoryBtn">View</button>
+          </div>
         </div>
       </div>
 
@@ -880,6 +932,17 @@
   </div>
 </div>
 
+<div class="sheet-overlay" id="historyOverlay" inert>
+  <div class="sheet" role="dialog" aria-label="History">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-header">
+      <h2>History</h2>
+      <button class="icon-btn" id="historyCloseBtn" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body" id="historyBody"></div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -921,10 +984,11 @@
    'nextTurnBtn', 'addPlayerBtn', 'resetScoresBtn', 'toast', 'settingsOverlay',
    'closeSettingsBtn', 'scoreStepSeg', 'chipSlots', 'quickChipsSuggestions',
    'allowNegativeToggle', 'winnerRuleSeg',
-   'turnTrackingToggle', 'soundToggle', 'vibrationToggle', 'keepAwakeToggle', 'themeSeg',
+   'turnTrackingToggle', 'autoAdvanceToggle', 'openHistoryBtn', 'soundToggle', 'vibrationToggle',
+   'keepAwakeToggle', 'themeSeg',
    'resetAllBtn', 'calcOverlay', 'calcPlayerName', 'calcCloseBtn', 'calcModeSeg', 'calcBase',
    'calcOpDisplay', 'calcEqSpan', 'calcEntry', 'calcResult', 'calcSignSeg', 'calcKeypad',
-   'calcBackBtn', 'calcApplyBtn'
+   'calcBackBtn', 'calcApplyBtn', 'historyOverlay', 'historyCloseBtn', 'historyBody'
   ].forEach(function (id) { els[id] = document.getElementById(id); });
   var chipSlotInputs = Array.prototype.slice.call(document.querySelectorAll('.chip-slot-input'));
   var chipSlotSigns = Array.prototype.slice.call(document.querySelectorAll('.chip-slot-sign'));
@@ -938,6 +1002,7 @@
   els.closeSettingsBtn.innerHTML = svgIcon('close');
   els.calcCloseBtn.innerHTML = svgIcon('close');
   els.calcBackBtn.innerHTML = svgIcon('backspace', 2);
+  els.historyCloseBtn.innerHTML = svgIcon('close');
 
   var persistenceBroken = false;
 
@@ -948,6 +1013,7 @@
     allowNegative: true,
     winnerRule: 'highest',
     turnTracking: false,
+    autoAdvanceTurn: false,
     keepAwake: false,
     sound: true,
     vibration: true
@@ -970,6 +1036,8 @@
 
   var undoStack = [];
   var redoStack = [];
+  var historyLog = [];          // human-readable log, shown in the History view
+  var redoHistoryBuffer = [];   // mirrors redoStack for historyLog entries
   var audioCtx = null;
 
   // ---------- Utilities ----------
@@ -1069,11 +1137,28 @@
     els.undoBtn.disabled = undoStack.length === 0;
     els.redoBtn.disabled = redoStack.length === 0;
   }
-  function snapshot() {
+  // snapshot() is called at exactly one point per atomic action, before it
+  // mutates state — the same shape every undoable action already followed.
+  // The optional `logEntry` rides alongside the state snapshot in a second,
+  // much less tightly capped array purely for the human-readable History
+  // view: undoStack only needs to remember enough to support a handful of
+  // undos, but a log worth reading back over a whole game needs far more
+  // than 25 entries. Both arrays are pushed to together and popped from
+  // together (by undo()/redo()), so the *newest* entries always stay in
+  // sync even though history can hold older entries undo has already
+  // forgotten — trimming only ever removes from the front of either array,
+  // which never disturbs that correspondence at the end.
+  function snapshot(logEntry) {
     undoStack.push(currentSnapshot());
     if (undoStack.length > 25) undoStack.shift();
     redoStack = [];
+    redoHistoryBuffer = [];
     updateHistoryButtons();
+    if (logEntry) {
+      logEntry.time = Date.now();
+      historyLog.push(logEntry);
+      if (historyLog.length > 500) historyLog.shift();
+    }
   }
   function undo() {
     var snap = undoStack.pop();
@@ -1081,6 +1166,8 @@
     redoStack.push(currentSnapshot());
     applySnapshot(snap);
     updateHistoryButtons();
+    var poppedLog = historyLog.pop();
+    if (poppedLog) redoHistoryBuffer.push(poppedLog);
   }
   function redo() {
     var snap = redoStack.pop();
@@ -1088,6 +1175,8 @@
     undoStack.push(currentSnapshot());
     applySnapshot(snap);
     updateHistoryButtons();
+    var restoredLog = redoHistoryBuffer.pop();
+    if (restoredLog) historyLog.push(restoredLog);
   }
 
   // ---------- Timer ----------
@@ -1433,26 +1522,60 @@
       plusBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
       plusBtn.setAttribute('aria-label', 'Increase score');
 
-      var minusHold = beginPressHold(function () { applyDelta(p, scoreEl, -settings.scoreStep); });
-      var plusHold = beginPressHold(function () { applyDelta(p, scoreEl, settings.scoreStep); });
-      minusBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); snapshot(); minusHold.start(); });
-      ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { minusBtn.addEventListener(ev, minusHold.stop); });
-      plusBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); snapshot(); plusHold.start(); });
-      ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { plusBtn.addEventListener(ev, plusHold.stop); });
-      // pointerdown only fires for real pointer/touch input, not keyboard
-      // (Tab + Enter/Space) activation — that instead dispatches a 'click'
-      // with detail:0. Handle that case here without double-firing for
-      // real clicks (which always have detail >= 1 and are already
-      // handled above via pointerdown). Correlated by timing rather than
-      // by checking event.detail === 0: that's a well-specified signal in
-      // major engines, but a plain "was there a pointerdown on this button
-      // in the last moment" check works identically everywhere regardless
-      // of any one engine's exact UIEvent semantics.
-      var minusPointerAt = 0, plusPointerAt = 0;
-      minusBtn.addEventListener('pointerdown', function () { minusPointerAt = Date.now(); });
-      plusBtn.addEventListener('pointerdown', function () { plusPointerAt = Date.now(); });
-      minusBtn.addEventListener('click', function () { if (Date.now() - minusPointerAt > 500) { snapshot(); applyDelta(p, scoreEl, -settings.scoreStep); } });
-      plusBtn.addEventListener('click', function () { if (Date.now() - plusPointerAt > 500) { snapshot(); applyDelta(p, scoreEl, settings.scoreStep); } });
+      // One history entry per press-hold session (not one per tick): the
+      // entry object is created at pointerdown and mutated in place on
+      // every subsequent tick, so a long hold shows up in History as a
+      // single "+12" rather than a dozen "+1" rows. Whether the turn
+      // auto-advances is likewise decided once, when the press ends, not
+      // on every tick.
+      function wireStepButton(btn, signMultiplier) {
+        var lastPointerUpAt = 0;
+        var histEntry = null;
+        var hold = beginPressHold(function () {
+          var delta = signMultiplier * settings.scoreStep;
+          applyDelta(p, scoreEl, delta);
+          if (histEntry) { histEntry.delta += delta; histEntry.resultingScore = p.score; }
+        });
+        function begin() {
+          histEntry = { type: 'score', playerName: p.name, delta: 0 };
+          snapshot(histEntry);
+          hold.start();
+        }
+        function finish() {
+          hold.stop();
+          lastPointerUpAt = Date.now();
+          if (histEntry) {
+            histEntry = null;
+            if (maybeAutoAdvanceTurn()) renderBoard();
+          }
+        }
+        btn.addEventListener('pointerdown', function (e) { e.preventDefault(); begin(); });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btn.addEventListener(ev, finish); });
+        // pointerdown only fires for real pointer/touch input, not keyboard
+        // (Tab + Enter/Space) activation — that instead dispatches a
+        // 'click'. Handle that case here without double-firing for real
+        // clicks (already handled above via pointerdown/hold), correlated
+        // against the *pointerup* timestamp rather than pointerdown: a
+        // real click always fires within a few ms of the pointerup ending
+        // the same interaction, however long the press itself was held,
+        // so this stays correct regardless of hold duration. Comparing
+        // against pointerdown instead — as an earlier version of this
+        // code did — misclassified any real click that ended a hold
+        // longer than the threshold as keyboard-originated, silently
+        // applying one extra unwanted step on every long press.
+        btn.addEventListener('click', function () {
+          if (Date.now() - lastPointerUpAt > 500) {
+            var delta = signMultiplier * settings.scoreStep;
+            var entry = { type: 'score', playerName: p.name, delta: delta };
+            snapshot(entry);
+            applyDelta(p, scoreEl, delta);
+            entry.resultingScore = p.score;
+            if (maybeAutoAdvanceTurn()) renderBoard();
+          }
+        });
+      }
+      wireStepButton(minusBtn, -1);
+      wireStepButton(plusBtn, 1);
 
       scoreWrap.appendChild(minusBtn);
       scoreWrap.appendChild(scoreTap);
@@ -1471,7 +1594,13 @@
           chip.className = 'chip ' + (val < 0 ? 'chip-neg' : 'chip-pos');
           chip.textContent = (val > 0 ? '+' : '') + val;
           chip.setAttribute('aria-label', (val > 0 ? 'Add ' : 'Subtract ') + Math.abs(val));
-          chip.addEventListener('click', function () { snapshot(); applyDelta(p, scoreEl, val); });
+          chip.addEventListener('click', function () {
+            var entry = { type: 'score', playerName: p.name, delta: val };
+            snapshot(entry);
+            applyDelta(p, scoreEl, val);
+            entry.resultingScore = p.score;
+            if (maybeAutoAdvanceTurn()) renderBoard();
+          });
           chipRow.appendChild(chip);
         });
         card.appendChild(chipRow);
@@ -1583,27 +1712,34 @@
     // nothing) — skip the snapshot so it doesn't clutter undo history.
     // In Set mode, 0 is a legitimate target value, so it still applies.
     if (calcMode === 'adjust' && calcEnteredNumber() === 0) { closeCalculator(); return; }
-    snapshot();
+    var entry = calcMode === 'set'
+      ? { type: 'set', playerName: calcPlayer.name }
+      : { type: 'score', playerName: calcPlayer.name, delta: calcSign * calcEnteredNumber() };
+    snapshot(entry);
     calcPlayer.score = calcResultValue();
+    entry.resultingScore = calcPlayer.score;
     calcScoreEl.textContent = calcPlayer.score;
     if (calcScoreEl.parentElement) calcScoreEl.parentElement.setAttribute('aria-label', 'Edit score, currently ' + calcPlayer.score);
     updateCrowns();
+    if (maybeAutoAdvanceTurn()) renderBoard();
     saveState();
     closeCalculator();
   }
 
   function addPlayer() {
     if (players.length >= MAX_PLAYERS) { showToast('Max ' + MAX_PLAYERS + ' players'); return; }
-    snapshot();
+    var newName = 'Player ' + (playerCounter + 1);
+    snapshot({ type: 'add', playerName: newName });
     playerCounter += 1;
-    players.push({ id: Date.now() + Math.random(), name: 'Player ' + playerCounter, score: 0 });
+    players.push({ id: Date.now() + Math.random(), name: newName, score: 0 });
     renderBoard();
     saveState();
   }
 
   function removePlayer(id) {
     if (players.length <= 1) return;
-    snapshot();
+    var removed = players.find(function (p) { return p.id === id; });
+    snapshot({ type: 'remove', playerName: removed ? removed.name : 'Player' });
     players = players.filter(function (p) { return p.id !== id; });
     if (currentTurnId === id) currentTurnId = players.length ? players[0].id : null;
     renderBoard();
@@ -1611,7 +1747,7 @@
   }
 
   function resetScores() {
-    snapshot();
+    snapshot({ type: 'reset-scores' });
     players.forEach(function (p) { p.score = 0; });
     renderBoard();
     saveState();
@@ -1624,20 +1760,51 @@
     playerCounter = 2;
     currentTurnId = null;
     resetTimer();
+    // A hard reset — history starts over with the game, rather than
+    // carrying a log of a game that no longer exists. The snapshot() call
+    // above still lets the player/timer state itself be undone; only the
+    // human-readable log is cleared, deliberately not part of that undo.
+    historyLog = [];
+    redoHistoryBuffer = [];
     renderBoard();
     saveState();
     closeSettings();
     showToast('Everything reset');
   }
 
-  function nextTurn() {
-    if (players.length === 0) return;
+  function computeNextTurnPlayer() {
+    if (players.length === 0) return null;
     var idx = players.findIndex(function (p) { return p.id === currentTurnId; });
     idx = (idx === -1 ? 0 : idx + 1) % players.length;
-    currentTurnId = players[idx].id;
+    return players[idx];
+  }
+
+  function nextTurn() {
+    var next = computeNextTurnPlayer();
+    if (!next) return;
+    snapshot({ type: 'turn', playerName: next.name });
+    currentTurnId = next.id;
     tapFeedback();
     renderBoard();
     saveState();
+  }
+
+  // Used by score-changing actions when the "advance turn on score change"
+  // setting is on. Deliberately doesn't call snapshot() itself — it always
+  // runs as part of an already-open score-change action, so folding the
+  // turn change into that SAME undo entry (rather than a second one) means
+  // one undo reverts the score and the turn move together, matching what
+  // the user actually did as a single action. currentTurnId is already
+  // part of what snapshot() captures, so this is safe to just mutate.
+  function maybeAutoAdvanceTurn() {
+    if (!settings.turnTracking || !settings.autoAdvanceTurn) return false;
+    var next = computeNextTurnPlayer();
+    if (!next || next.id === currentTurnId) return false;
+    currentTurnId = next.id;
+    tapFeedback();
+    historyLog.push({ type: 'turn', playerName: next.name, time: Date.now() });
+    if (historyLog.length > 500) historyLog.shift();
+    return true;
   }
 
   // ---------- Settings UI ----------
@@ -1659,12 +1826,76 @@
     if (settingsReturnFocus && typeof settingsReturnFocus.focus === 'function') settingsReturnFocus.focus();
   }
 
+  // ---------- History ----------
+  // Renders historyLog top-to-bottom in the order it happened (oldest
+  // first), inserting a section header wherever a 'turn' entry appears —
+  // those aren't rendered as a row of their own, just as the break between
+  // one player's actions and the next's.
+  function renderHistory() {
+    var body = els.historyBody;
+    body.innerHTML = '';
+    if (historyLog.length === 0) {
+      var empty = document.createElement('p');
+      empty.className = 'history-empty';
+      empty.textContent = 'No actions yet.';
+      body.appendChild(empty);
+      return;
+    }
+    historyLog.forEach(function (entry) {
+      if (entry.type === 'turn') {
+        var header = document.createElement('div');
+        header.className = 'history-turn-header';
+        header.textContent = entry.playerName + '’s turn';
+        body.appendChild(header);
+        return;
+      }
+      var row = document.createElement('div');
+      row.className = 'history-row';
+      var label = document.createElement('span');
+      label.className = 'history-label';
+      var detail = document.createElement('span');
+      detail.className = 'history-detail';
+      label.textContent = entry.playerName;
+      if (entry.type === 'score') {
+        detail.textContent = (entry.delta > 0 ? '+' : '') + entry.delta + '  →  ' + entry.resultingScore;
+        detail.classList.add(entry.delta >= 0 ? 'history-pos' : 'history-neg');
+      } else if (entry.type === 'set') {
+        detail.textContent = 'set to ' + entry.resultingScore;
+      } else if (entry.type === 'add') {
+        detail.textContent = 'added';
+      } else if (entry.type === 'remove') {
+        detail.textContent = 'removed';
+      } else if (entry.type === 'reset-scores') {
+        label.textContent = 'All players';
+        detail.textContent = 'scores reset';
+      }
+      row.appendChild(label);
+      row.appendChild(detail);
+      body.appendChild(row);
+    });
+  }
+
+  var historyReturnFocus = null;
+  function openHistory() {
+    historyReturnFocus = document.activeElement;
+    renderHistory();
+    els.historyOverlay.classList.add('open');
+    els.historyOverlay.inert = false;
+  }
+  function closeHistory() {
+    els.historyOverlay.classList.remove('open');
+    els.historyOverlay.inert = true;
+    if (historyReturnFocus && typeof historyReturnFocus.focus === 'function') historyReturnFocus.focus();
+  }
+
   function syncSettingsUI() {
     setSegActive(els.scoreStepSeg, 'step', settings.scoreStep);
     setSegActive(els.winnerRuleSeg, 'rule', settings.winnerRule);
     setSegActive(els.themeSeg, 'theme', settings.theme);
     els.allowNegativeToggle.checked = settings.allowNegative;
     els.turnTrackingToggle.checked = settings.turnTracking;
+    els.autoAdvanceToggle.checked = settings.autoAdvanceTurn;
+    els.autoAdvanceToggle.disabled = !settings.turnTracking;
     els.soundToggle.checked = settings.sound;
     els.vibrationToggle.checked = settings.vibration;
     els.keepAwakeToggle.checked = settings.keepAwake;
@@ -1904,9 +2135,14 @@
   els.turnTrackingToggle.addEventListener('change', function (e) {
     settings.turnTracking = e.target.checked;
     if (settings.turnTracking && currentTurnId == null && players.length) currentTurnId = players[0].id;
+    els.autoAdvanceToggle.disabled = !settings.turnTracking;
     renderBoard();
     saveState();
   });
+  els.autoAdvanceToggle.addEventListener('change', function (e) { settings.autoAdvanceTurn = e.target.checked; saveState(); });
+  els.openHistoryBtn.addEventListener('click', function () { closeSettings(); openHistory(); });
+  els.historyCloseBtn.addEventListener('click', closeHistory);
+  els.historyOverlay.addEventListener('click', function (e) { if (e.target === els.historyOverlay) closeHistory(); });
   els.soundToggle.addEventListener('change', function (e) { settings.sound = e.target.checked; saveState(); });
   els.vibrationToggle.addEventListener('change', function (e) { settings.vibration = e.target.checked; saveState(); });
   els.keepAwakeToggle.addEventListener('change', function (e) {
