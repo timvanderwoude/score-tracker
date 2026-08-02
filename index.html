@@ -1441,6 +1441,21 @@
     };
   }
 
+  // Toggles the .is-turn highlight on existing card elements without
+  // tearing down and rebuilding the board. Used after auto-advancing the
+  // turn from a score change: a full renderBoard() there would remove and
+  // recreate the very +/- button the user is still mid-interaction with,
+  // and the browser's compatibility 'click' event that follows pointerup
+  // then retargets to the freshly-created replacement button — whose
+  // handler sees a brand new (never-touched) closure and misapplies a
+  // second, unwanted delta. Only touching the class sidesteps that.
+  function updateTurnIndicator() {
+    els.board.querySelectorAll('.player').forEach(function (card) {
+      var isTurn = settings.turnTracking && Number(card.dataset.id) === currentTurnId;
+      card.classList.toggle('is-turn', isTurn);
+    });
+  }
+
   function renderBoard() {
     els.board.innerHTML = '';
     players.forEach(function (p, idx) {
@@ -1516,7 +1531,6 @@
       // auto-advances is likewise decided once, when the press ends, not
       // on every tick.
       function wireStepButton(btn, signMultiplier) {
-        var lastPointerUpAt = 0;
         var histEntry = null;
         var hold = beginPressHold(function () {
           var delta = signMultiplier * settings.scoreStep;
@@ -1530,10 +1544,9 @@
         }
         function finish() {
           hold.stop();
-          lastPointerUpAt = Date.now();
           if (histEntry) {
             histEntry = null;
-            if (maybeAutoAdvanceTurn(p)) renderBoard();
+            if (maybeAutoAdvanceTurn(p)) { updateTurnIndicator(); saveState(); }
           }
         }
         btn.addEventListener('pointerdown', function (e) { e.preventDefault(); begin(); });
@@ -1541,23 +1554,25 @@
         // pointerdown only fires for real pointer/touch input, not keyboard
         // (Tab + Enter/Space) activation — that instead dispatches a
         // 'click'. Handle that case here without double-firing for real
-        // clicks (already handled above via pointerdown/hold), correlated
-        // against the *pointerup* timestamp rather than pointerdown: a
-        // real click always fires within a few ms of the pointerup ending
-        // the same interaction, however long the press itself was held,
-        // so this stays correct regardless of hold duration. Comparing
-        // against pointerdown instead — as an earlier version of this
-        // code did — misclassified any real click that ended a hold
-        // longer than the threshold as keyboard-originated, silently
-        // applying one extra unwanted step on every long press.
-        btn.addEventListener('click', function () {
-          if (Date.now() - lastPointerUpAt > 500) {
+        // clicks (already handled above via pointerdown/hold). Checking
+        // event.detail (0 for a keyboard-synthesized click, >=1 for one
+        // that traces back to a real pointer down/up) rather than timing
+        // is what makes this reliable: an earlier version compared
+        // Date.now() against the pointerup timestamp, which broke
+        // whenever finish() above triggered a turn-indicator update that
+        // touched the DOM — the browser's compatibility 'click' event,
+        // dispatched right after pointerup, could retarget to a
+        // recreated button with a fresh (never-touched) closure, whose
+        // stale-timer heuristic then misread it as keyboard-originated
+        // and silently applied a second, unwanted delta.
+        btn.addEventListener('click', function (e) {
+          if (e.detail === 0) {
             var delta = signMultiplier * settings.scoreStep;
             var entry = { type: 'score', playerName: p.name, delta: delta };
             snapshot(entry);
             applyDelta(p, scoreEl, delta);
             entry.resultingScore = p.score;
-            if (maybeAutoAdvanceTurn(p)) renderBoard();
+            if (maybeAutoAdvanceTurn(p)) { updateTurnIndicator(); saveState(); }
           }
         });
       }
@@ -1586,7 +1601,7 @@
             snapshot(entry);
             applyDelta(p, scoreEl, val);
             entry.resultingScore = p.score;
-            if (maybeAutoAdvanceTurn(p)) renderBoard();
+            if (maybeAutoAdvanceTurn(p)) { updateTurnIndicator(); saveState(); }
           });
           chipRow.appendChild(chip);
         });
@@ -1708,7 +1723,7 @@
     calcScoreEl.textContent = calcPlayer.score;
     if (calcScoreEl.parentElement) calcScoreEl.parentElement.setAttribute('aria-label', 'Edit score, currently ' + calcPlayer.score);
     updateCrowns();
-    if (maybeAutoAdvanceTurn(calcPlayer)) renderBoard();
+    if (maybeAutoAdvanceTurn(calcPlayer)) updateTurnIndicator();
     saveState();
     closeCalculator();
   }
