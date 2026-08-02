@@ -460,6 +460,20 @@
   .chip-pos { background: var(--green); }
   .chip-neg { background: var(--red); }
 
+  /* Lives inside .chip-row alongside preset chips; same pill sizing so it
+     scrolls with them, just circular with an icon instead of text. */
+  .calc-btn {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(5px * var(--card-scale, 1));
+  }
+  .calc-btn svg { width: calc(15px * var(--card-scale, 1)); height: calc(15px * var(--card-scale, 1)); }
+
   /* ---------- Bottom bar ---------- */
   .bottombar {
     flex: 0 0 auto;
@@ -584,15 +598,25 @@
   .setting-row .seg { max-width: 200px; }
   .setting-row.stacked { flex-direction: column; align-items: stretch; gap: 10px; }
   .setting-row.stacked > span { font-size: 0.98rem; }
-  .quick-chips-input {
+  .chip-slots {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+  }
+  .chip-slot-input {
     width: 100%;
+    min-width: 0;
     font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
     background: var(--panel-2);
     border: none;
     border-radius: 8px;
     color: var(--text);
-    padding: 9px 10px;
+    padding: 9px 2px;
   }
+  .chip-slot-input::placeholder { color: var(--text-faint); }
   .suggestion-row {
     display: flex;
     gap: 6px;
@@ -615,6 +639,54 @@
   }
   .suggestion-chip:active { opacity: 0.7; }
   .suggestion-chip.clear { color: var(--text-dim); }
+
+  /* ---------- Calculator sheet ---------- */
+  .calc-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 8px 20px calc(20px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .calc-preview {
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+  }
+  .calc-preview #calcResult {
+    color: var(--text);
+    font-size: 1.6rem;
+    font-weight: 750;
+  }
+  .calc-op { padding: 0 4px; }
+  .calc-eq { padding: 0 6px; }
+  .calc-sign-seg button { font-size: 0.95rem; padding: 10px; }
+  .calc-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .calc-keypad button {
+    border: none;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border-radius: 12px;
+    padding: 16px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .calc-keypad button:active { transform: scale(0.95); opacity: 0.8; }
+  .calc-keypad button.calc-key-text { color: var(--red); font-size: 1.1rem; }
+  .calc-keypad button svg { width: 22px; height: 22px; }
+  .calc-apply-btn { font-size: 1.05rem; padding: 14px; }
 
   .switch { position: relative; display: inline-block; width: 51px; height: 31px; flex: 0 0 auto; }
   .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
@@ -699,13 +771,20 @@
             </div>
           </div>
           <div class="setting-row stacked">
-            <span>Quick-add buttons</span>
-            <input class="quick-chips-input" id="quickChipsInput" type="text" inputmode="numeric" placeholder="e.g. 2, 3, 5" aria-label="Custom quick-add values, comma separated">
+            <span>Score presets (up to 6, positive or negative)</span>
+            <div class="chip-slots" id="chipSlots">
+              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 1" data-slot="0">
+              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 2" data-slot="1">
+              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 3" data-slot="2">
+              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 4" data-slot="3">
+              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 5" data-slot="4">
+              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 6" data-slot="5">
+            </div>
             <div class="suggestion-row" id="quickChipsSuggestions">
-              <button type="button" class="suggestion-chip" data-value="2, 3">Basketball</button>
-              <button type="button" class="suggestion-chip" data-value="2, 3, 4, 6, 8, 12, 15">Cribbage</button>
-              <button type="button" class="suggestion-chip" data-value="5, 10, 15, 20, 25, 30, 40, 50">Yahtzee</button>
-              <button type="button" class="suggestion-chip" data-value="-20, -40, -60, -100">Darts</button>
+              <button type="button" class="suggestion-chip" data-value="1, 2, 3">Basketball</button>
+              <button type="button" class="suggestion-chip" data-value="2, 3, 4, 6, 8, 12">Cribbage</button>
+              <button type="button" class="suggestion-chip" data-value="5, 10, 15, 25, 30, 50">Yahtzee</button>
+              <button type="button" class="suggestion-chip" data-value="-20, -40, -60, -80, -100, -180">Darts</button>
               <button type="button" class="suggestion-chip clear" data-value="">Clear</button>
             </div>
           </div>
@@ -767,6 +846,36 @@
   </div>
 </div>
 
+<div class="sheet-overlay" id="calcOverlay" inert>
+  <div class="sheet calc-sheet" role="dialog" aria-label="Add or subtract from score">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-header">
+      <h2 id="calcPlayerName">Player</h2>
+      <button class="icon-btn" id="calcCloseBtn" aria-label="Close"></button>
+    </div>
+    <div class="calc-body">
+      <div class="calc-preview">
+        <span id="calcBase">0</span>
+        <span class="calc-op" id="calcOpDisplay">+</span>
+        <span id="calcEntry">0</span>
+        <span class="calc-eq">=</span>
+        <span id="calcResult">0</span>
+      </div>
+      <div class="seg calc-sign-seg" id="calcSignSeg">
+        <button data-sign="1" class="active">+ Add</button>
+        <button data-sign="-1">− Subtract</button>
+      </div>
+      <div class="calc-keypad" id="calcKeypad">
+        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+        <button data-key="clear" class="calc-key-text">C</button><button data-key="0">0</button><button data-key="back" id="calcBackBtn" aria-label="Backspace"></button>
+      </div>
+      <button class="pill-btn accent full calc-apply-btn" id="calcApplyBtn">Apply</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -793,7 +902,12 @@
     crown: '<path d="M3.5 8.5 7 11.5 12 5l5 6.5 3.5-3-1.6 9.5H5.1L3.5 8.5z" fill="currentColor" stroke="currentColor" stroke-width="1"/>',
     pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
     clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>',
-    stopwatch: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.3V13l2.4 1.9"/><path d="M9.5 2.3h5"/><path d="M12 2.3V5"/>'
+    stopwatch: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.3V13l2.4 1.9"/><path d="M9.5 2.3h5"/><path d="M12 2.3V5"/>',
+    calculator: '<rect x="5" y="2" width="14" height="20" rx="2.5"/><rect x="7.5" y="4.5" width="9" height="4" rx="0.6" fill="currentColor" stroke="none"/>' +
+      '<circle cx="8.5" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12.5" r="1" fill="currentColor" stroke="none"/>' +
+      '<circle cx="8.5" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="16" r="1" fill="currentColor" stroke="none"/>' +
+      '<circle cx="8.5" cy="19.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="19.5" r="1" fill="currentColor" stroke="none"/>',
+    backspace: '<path d="M9 4.5h11a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H9l-6.5-7.5L9 4.5z"/><path d="M13.5 9.5l5 5"/><path d="M18.5 9.5l-5 5"/>'
   };
   function svgIcon(name, strokeWidth) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (strokeWidth || 1.8) +
@@ -805,10 +919,13 @@
    'undoBtn', 'redoBtn', 'settingsBtn', 'timerDrawer', 'timerDrawerBackdrop', 'timerModeSeg',
    'timerSetFields', 'timerQuickInput', 'timerQuickPreview', 'applyTimerBtn', 'timerResetBtn',
    'nextTurnBtn', 'addPlayerBtn', 'resetScoresBtn', 'toast', 'settingsOverlay',
-   'closeSettingsBtn', 'scoreStepSeg', 'quickChipsInput', 'quickChipsSuggestions',
+   'closeSettingsBtn', 'scoreStepSeg', 'chipSlots', 'quickChipsSuggestions',
    'allowNegativeToggle', 'winnerRuleSeg',
    'turnTrackingToggle', 'soundToggle', 'vibrationToggle', 'keepAwakeToggle', 'themeSeg',
-   'resetAllBtn'].forEach(function (id) { els[id] = document.getElementById(id); });
+   'resetAllBtn', 'calcOverlay', 'calcPlayerName', 'calcCloseBtn', 'calcBase', 'calcOpDisplay',
+   'calcEntry', 'calcResult', 'calcSignSeg', 'calcKeypad', 'calcBackBtn', 'calcApplyBtn'
+  ].forEach(function (id) { els[id] = document.getElementById(id); });
+  var chipSlotInputs = Array.prototype.slice.call(document.querySelectorAll('.chip-slot-input'));
 
   // Static icon-only buttons: fill in their SVG once at startup.
   els.timerToggleBtn.innerHTML = svgIcon('play');
@@ -817,6 +934,8 @@
   els.redoBtn.innerHTML = svgIcon('redo');
   els.settingsBtn.innerHTML = svgIcon('settings');
   els.closeSettingsBtn.innerHTML = svgIcon('close');
+  els.calcCloseBtn.innerHTML = svgIcon('close');
+  els.calcBackBtn.innerHTML = svgIcon('backspace', 2);
 
   var persistenceBroken = false;
 
@@ -1140,10 +1259,10 @@
     var g = computeGrid(players.length, w, h);
     els.board.style.gridTemplateColumns = 'repeat(' + g.cols + ', 1fr)';
     els.board.style.gridTemplateRows = 'repeat(' + g.rows + ', 1fr)';
-    // Quick-add chips add a row to every card, so the "ideal" card height
-    // used to size everything is taller whenever any are configured.
-    var idealCardH = settings.quickChips.length ? 260 : 220;
-    var layoutScale = clamp(Math.min(g.cellW / 250, g.cellH / idealCardH), 0.4, 1.3);
+    // The calculator + presets row is always present now (the calculator
+    // button lives there regardless of whether any presets are configured),
+    // so every card reserves space for it, not just ones with chips set.
+    var layoutScale = clamp(Math.min(g.cellW / 250, g.cellH / 260), 0.4, 1.3);
     // Text should shrink more gently than padding/buttons do, so names and
     // scores stay legible even when many players make cards physically small.
     var textScale = clamp(layoutScale, 0.62, 1.3);
@@ -1326,19 +1445,31 @@
       scoreWrap.appendChild(plusBtn);
       card.appendChild(scoreWrap);
 
-      if (settings.quickChips.length) {
-        var chipRow = document.createElement('div');
-        chipRow.className = 'chip-row';
-        settings.quickChips.forEach(function (val) {
-          var chip = document.createElement('button');
-          chip.className = 'chip ' + (val < 0 ? 'chip-neg' : 'chip-pos');
-          chip.textContent = (val > 0 ? '+' : '') + val;
-          chip.setAttribute('aria-label', (val > 0 ? 'Add ' : 'Subtract ') + Math.abs(val));
-          chip.addEventListener('click', function () { snapshot(); applyDelta(p, scoreEl, val); });
-          chipRow.appendChild(chip);
-        });
-        card.appendChild(chipRow);
-      }
+      // Calculator + preset chips share one horizontally-scrolling row
+      // rather than competing for score-wrap's width budget. score-wrap's
+      // 3 fixed-size circles were sized to just fit even the smallest
+      // (12-player) cards; a 4th element there overflowed the card itself
+      // at that extreme, leaving the button rendered but invisible/
+      // untappable. The chip row already has scroll+fade built in as an
+      // overflow safety valve, so anything added there degrades to "scroll
+      // to reach it" instead of "invisible."
+      var toolRow = document.createElement('div');
+      toolRow.className = 'chip-row';
+      var calcBtn = document.createElement('button');
+      calcBtn.className = 'chip calc-btn';
+      calcBtn.innerHTML = svgIcon('calculator', 1.6);
+      calcBtn.setAttribute('aria-label', 'Add or subtract a custom amount for ' + p.name);
+      calcBtn.addEventListener('click', function () { openCalculator(p, scoreEl); });
+      toolRow.appendChild(calcBtn);
+      settings.quickChips.forEach(function (val) {
+        var chip = document.createElement('button');
+        chip.className = 'chip ' + (val < 0 ? 'chip-neg' : 'chip-pos');
+        chip.textContent = (val > 0 ? '+' : '') + val;
+        chip.setAttribute('aria-label', (val > 0 ? 'Add ' : 'Subtract ') + Math.abs(val));
+        chip.addEventListener('click', function () { snapshot(); applyDelta(p, scoreEl, val); });
+        toolRow.appendChild(chip);
+      });
+      card.appendChild(toolRow);
 
       els.board.appendChild(card);
     });
@@ -1406,6 +1537,76 @@
       if (e.key === 'Enter') input.blur();
       if (e.key === 'Escape') { input.value = p.score; input.blur(); }
     });
+  }
+
+  // ---------- Calculator (relative add/subtract entry) ----------
+  // Complements the fixed presets: build any signed amount digit by digit
+  // and apply it as a delta, rather than needing a preset for every
+  // possible value or computing the new absolute total yourself — the
+  // main gap-filler for games like darts, where a turn can subtract
+  // almost any amount up to 180.
+  var calcPlayer = null;
+  var calcScoreEl = null;
+  var calcSign = 1;
+  var calcEntry = '0';
+  var calcReturnFocus = null;
+
+  function calcEnteredNumber() { return parseInt(calcEntry, 10) || 0; }
+  function calcResultValue() {
+    if (!calcPlayer) return 0;
+    var result = calcPlayer.score + calcSign * calcEnteredNumber();
+    if (!settings.allowNegative) result = Math.max(0, result);
+    return result;
+  }
+  function updateCalcDisplay() {
+    if (!calcPlayer) return;
+    els.calcBase.textContent = calcPlayer.score;
+    els.calcOpDisplay.textContent = calcSign > 0 ? '+' : '−';
+    els.calcEntry.textContent = calcEntry;
+    els.calcResult.textContent = calcResultValue();
+  }
+  function setCalcSign(sign) {
+    calcSign = sign;
+    setSegActive(els.calcSignSeg, 'sign', sign);
+    updateCalcDisplay();
+  }
+  function calcPressDigit(d) {
+    calcEntry = calcEntry === '0' ? d : (calcEntry.length < 6 ? calcEntry + d : calcEntry);
+    updateCalcDisplay();
+  }
+  function calcBackspace() {
+    calcEntry = calcEntry.length > 1 ? calcEntry.slice(0, -1) : '0';
+    updateCalcDisplay();
+  }
+  function calcClear() {
+    calcEntry = '0';
+    updateCalcDisplay();
+  }
+
+  function openCalculator(p, scoreEl) {
+    calcPlayer = p;
+    calcScoreEl = scoreEl;
+    calcSign = 1;
+    calcEntry = '0';
+    calcReturnFocus = document.activeElement;
+    els.calcPlayerName.textContent = p.name;
+    setSegActive(els.calcSignSeg, 'sign', 1);
+    updateCalcDisplay();
+    els.calcOverlay.classList.add('open');
+    els.calcOverlay.inert = false;
+  }
+  function closeCalculator() {
+    els.calcOverlay.classList.remove('open');
+    els.calcOverlay.inert = true;
+    calcPlayer = null;
+    calcScoreEl = null;
+    if (calcReturnFocus && typeof calcReturnFocus.focus === 'function') calcReturnFocus.focus();
+  }
+  function applyCalculator() {
+    if (!calcPlayer || calcEnteredNumber() === 0) { closeCalculator(); return; }
+    snapshot();
+    applyDelta(calcPlayer, calcScoreEl, calcSign * calcEnteredNumber());
+    closeCalculator();
   }
 
   function addPlayer() {
@@ -1484,14 +1685,23 @@
     els.soundToggle.checked = settings.sound;
     els.vibrationToggle.checked = settings.vibration;
     els.keepAwakeToggle.checked = settings.keepAwake;
-    els.quickChipsInput.value = settings.quickChips.join(', ');
+    fillChipSlots(settings.quickChips);
   }
 
-  function parseQuickChips(str) {
-    return (str || '').split(',')
-      .map(function (s) { return parseInt(s.trim(), 10); })
+  // Six independent, stable preset slots rather than a parsed comma list —
+  // editing one slot doesn't shuffle the others' positions. The slots may
+  // have gaps (a cleared middle slot); settings.quickChips itself stays a
+  // compact array, read fresh from all 6 inputs whenever any of them change.
+  function fillChipSlots(values) {
+    chipSlotInputs.forEach(function (input, i) {
+      input.value = values[i] !== undefined ? String(values[i]) : '';
+    });
+  }
+  function readChipSlots() {
+    return chipSlotInputs
+      .map(function (input) { return parseInt(input.value.trim(), 10); })
       .filter(function (n) { return !isNaN(n) && n !== 0; })
-      .slice(0, 8);
+      .slice(0, 6);
   }
 
   // ---------- Persistence ----------
@@ -1613,6 +1823,31 @@
   els.nextTurnBtn.addEventListener('click', nextTurn);
   els.resetAllBtn.addEventListener('click', resetEverything);
 
+  els.calcCloseBtn.addEventListener('click', closeCalculator);
+  els.calcOverlay.addEventListener('click', function (e) { if (e.target === els.calcOverlay) closeCalculator(); });
+  els.calcSignSeg.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-sign]');
+    if (btn) setCalcSign(Number(btn.dataset.sign));
+  });
+  els.calcKeypad.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-key]');
+    if (!btn) return;
+    var key = btn.dataset.key;
+    if (key === 'back') calcBackspace();
+    else if (key === 'clear') calcClear();
+    else calcPressDigit(key);
+  });
+  els.calcApplyBtn.addEventListener('click', applyCalculator);
+  document.addEventListener('keydown', function (e) {
+    if (!els.calcOverlay.classList.contains('open')) return;
+    if (e.key >= '0' && e.key <= '9') calcPressDigit(e.key);
+    else if (e.key === 'Backspace') calcBackspace();
+    else if (e.key === 'Enter') applyCalculator();
+    else if (e.key === 'Escape') closeCalculator();
+    else if (e.key === '+') setCalcSign(1);
+    else if (e.key === '-') setCalcSign(-1);
+  });
+
   els.scoreStepSeg.addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-step]');
     if (!btn) return;
@@ -1620,18 +1855,20 @@
     setSegActive(els.scoreStepSeg, 'step', settings.scoreStep);
     saveState();
   });
-  els.quickChipsInput.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
-  els.quickChipsInput.addEventListener('change', function (e) {
-    settings.quickChips = parseQuickChips(e.target.value);
-    e.target.value = settings.quickChips.join(', ');
-    renderBoard();
-    saveState();
+  chipSlotInputs.forEach(function (input) {
+    input.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
+    input.addEventListener('change', function () {
+      settings.quickChips = readChipSlots();
+      renderBoard();
+      saveState();
+    });
   });
   els.quickChipsSuggestions.addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-value]');
     if (!btn) return;
-    els.quickChipsInput.value = btn.dataset.value;
-    settings.quickChips = parseQuickChips(btn.dataset.value);
+    var values = btn.dataset.value ? btn.dataset.value.split(',').map(function (s) { return parseInt(s.trim(), 10); }) : [];
+    fillChipSlots(values);
+    settings.quickChips = readChipSlots();
     renderBoard();
     saveState();
   });
