@@ -1546,7 +1546,7 @@
           lastPointerUpAt = Date.now();
           if (histEntry) {
             histEntry = null;
-            if (maybeAutoAdvanceTurn()) renderBoard();
+            if (maybeAutoAdvanceTurn(p)) renderBoard();
           }
         }
         btn.addEventListener('pointerdown', function (e) { e.preventDefault(); begin(); });
@@ -1570,7 +1570,7 @@
             snapshot(entry);
             applyDelta(p, scoreEl, delta);
             entry.resultingScore = p.score;
-            if (maybeAutoAdvanceTurn()) renderBoard();
+            if (maybeAutoAdvanceTurn(p)) renderBoard();
           }
         });
       }
@@ -1599,7 +1599,7 @@
             snapshot(entry);
             applyDelta(p, scoreEl, val);
             entry.resultingScore = p.score;
-            if (maybeAutoAdvanceTurn()) renderBoard();
+            if (maybeAutoAdvanceTurn(p)) renderBoard();
           });
           chipRow.appendChild(chip);
         });
@@ -1721,7 +1721,7 @@
     calcScoreEl.textContent = calcPlayer.score;
     if (calcScoreEl.parentElement) calcScoreEl.parentElement.setAttribute('aria-label', 'Edit score, currently ' + calcPlayer.score);
     updateCrowns();
-    if (maybeAutoAdvanceTurn()) renderBoard();
+    if (maybeAutoAdvanceTurn(calcPlayer)) renderBoard();
     saveState();
     closeCalculator();
   }
@@ -1790,19 +1790,25 @@
   }
 
   // Used by score-changing actions when the "advance turn on score change"
-  // setting is on. Deliberately doesn't call snapshot() itself — it always
-  // runs as part of an already-open score-change action, so folding the
-  // turn change into that SAME undo entry (rather than a second one) means
-  // one undo reverts the score and the turn move together, matching what
-  // the user actually did as a single action. currentTurnId is already
-  // part of what snapshot() captures, so this is safe to just mutate.
-  function maybeAutoAdvanceTurn() {
+  // setting is on. Moves the turn TO the player whose score just changed
+  // (not to "whoever comes next after currentTurnId" — computeNextTurnPlayer
+  // is for the manual Next Turn button's cycling behavior, and using it
+  // here was the bug: it ignored which card was actually tapped and just
+  // advanced from wherever the turn indicator was already sitting, so
+  // scoring a player who wasn't the highlighted one moved the turn to some
+  // unrelated third player instead of following the one you actually
+  // scored). Deliberately doesn't call snapshot() itself — it always runs
+  // as part of an already-open score-change action, so folding the turn
+  // change into that SAME undo entry (rather than a second one) means one
+  // undo reverts the score and the turn move together, matching what the
+  // user actually did as a single action. currentTurnId is already part
+  // of what snapshot() captures, so this is safe to just mutate.
+  function maybeAutoAdvanceTurn(scoredPlayer) {
     if (!settings.turnTracking || !settings.autoAdvanceTurn) return false;
-    var next = computeNextTurnPlayer();
-    if (!next || next.id === currentTurnId) return false;
-    currentTurnId = next.id;
+    if (!scoredPlayer || scoredPlayer.id === currentTurnId) return false;
+    currentTurnId = scoredPlayer.id;
     tapFeedback();
-    historyLog.push({ type: 'turn', playerName: next.name, time: Date.now() });
+    historyLog.push({ type: 'turn', playerName: scoredPlayer.name, time: Date.now() });
     if (historyLog.length > 500) historyLog.shift();
     return true;
   }
@@ -1947,7 +1953,9 @@
       }
       localStorage.setItem(STATE_KEY, JSON.stringify({
         players: players, playerCounter: playerCounter, currentTurnId: currentTurnId,
-        timer: timerPayload
+        timer: timerPayload,
+        undoStack: undoStack, redoStack: redoStack,
+        historyLog: historyLog, redoHistoryBuffer: redoHistoryBuffer
       }));
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch (e) {
@@ -2014,6 +2022,11 @@
             }
           }
         }
+
+        undoStack = Array.isArray(state.undoStack) ? state.undoStack : [];
+        redoStack = Array.isArray(state.redoStack) ? state.redoStack : [];
+        historyLog = Array.isArray(state.historyLog) ? state.historyLog : [];
+        redoHistoryBuffer = Array.isArray(state.redoHistoryBuffer) ? state.redoHistoryBuffer : [];
       } else {
         players = defaultPlayers();
       }
@@ -2155,6 +2168,7 @@
   loadSettings();
   applyTheme();
   loadState();
+  updateHistoryButtons();
   syncSettingsUI();
   els.timerSetFields.hidden = timer.mode !== 'countdown';
   setSegActive(els.timerModeSeg, 'mode', timer.mode);
