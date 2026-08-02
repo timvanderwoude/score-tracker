@@ -1360,12 +1360,23 @@
     var input = document.createElement('input');
     // type="text" (not "number") because number inputs don't support the
     // selection API in any browser — .select() silently no-ops on them,
-    // which broke "highlight on entry". inputmode + pattern still bring up
-    // a numeric keypad on mobile, and the pattern also makes iOS show a
-    // minus key (WebKit-specific: plain inputmode="numeric" hides it).
+    // which broke "highlight on entry".
+    //
+    // inputmode="numeric" requests a digits-only on-screen keyboard, and
+    // whether that includes a minus key is inconsistent across platforms
+    // (WebKit only shows one with a matching `pattern` hint; Android's
+    // numeric keypad generally has no minus key at all, pattern or not).
+    // Rather than lean on a keyboard-specific trick that can't be verified
+    // everywhere, only request the restrictive numeric keypad when a minus
+    // sign could never be needed. When negatives are allowed, fall back to
+    // the default text keyboard, which has "-" on every platform.
     input.type = 'text';
-    input.inputMode = 'numeric';
-    input.pattern = '-?[0-9]*';
+    if (settings.allowNegative) {
+      input.inputMode = 'text';
+    } else {
+      input.inputMode = 'numeric';
+      input.pattern = '[0-9]*';
+    }
     input.className = 'score-input';
     input.value = p.score;
     scoreTap.replaceChild(input, scoreEl);
