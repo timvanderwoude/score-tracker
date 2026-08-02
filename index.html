@@ -6,8 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#1c1f26">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234f8ef7'/%3E%3Ctext x='50' y='68' font-size='58' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'%3E%23%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230A84FF'/%3E%3Ctext x='50' y='68' font-size='58' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'%3E%23%3C/text%3E%3C/svg%3E">
 <title>Score Tracker</title>
 <script>
   // Resolve theme before first paint to avoid a flash of the wrong theme.
@@ -25,29 +26,41 @@
   })();
 </script>
 <style>
+  /* Color values are Apple's documented iOS system colors (Human Interface
+     Guidelines), not approximations — systemBlue/Green/Red, label opacities,
+     and the systemGroupedBackground layering (page vs. card surface). */
   :root {
-    --bg: #1c1f26;
-    --panel: #262a33;
-    --panel-2: #2e333e;
-    --border: #444956;
-    --text: #ffffff;
-    --text-dim: #9aa0ab;
-    --text-faint: #666c78;
-    --blue: #4f8ef7;
-    --green: #34c759;
-    --red: #ff453a;
-    --shadow: rgba(0, 0, 0, 0.35);
+    --bg: #000000;
+    --panel: #1C1C1E;
+    --panel-2: #2C2C2E;
+    --panel-3: #3A3A3C;
+    --border: #38383A;
+    --text: #FFFFFF;
+    --text-dim: rgba(235, 235, 245, 0.6);
+    --text-faint: rgba(235, 235, 245, 0.3);
+    --blue: #0A84FF;
+    --green: #30D158;
+    --red: #FF453A;
+    --shadow: rgba(0, 0, 0, 0.45);
+    --selection-bg: rgba(10, 132, 255, 0.35);
+    --overlay: rgba(0, 0, 0, 0.55);
     color-scheme: dark;
   }
   :root[data-theme="light"] {
-    --bg: #eef0f4;
-    --panel: #ffffff;
-    --panel-2: #f4f5f8;
-    --border: #d9dce2;
-    --text: #1c1f26;
-    --text-dim: #666c78;
-    --text-faint: #9aa0ab;
-    --shadow: rgba(30, 34, 44, 0.12);
+    --bg: #F2F2F7;
+    --panel: #FFFFFF;
+    --panel-2: #E9E9EB;
+    --panel-3: #FFFFFF;
+    --border: #C6C6C8;
+    --text: #000000;
+    --text-dim: rgba(60, 60, 67, 0.6);
+    --text-faint: rgba(60, 60, 67, 0.3);
+    --blue: #007AFF;
+    --green: #34C759;
+    --red: #FF3B30;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --selection-bg: rgba(0, 122, 255, 0.22);
+    --overlay: rgba(0, 0, 0, 0.4);
     color-scheme: light;
   }
 
@@ -62,50 +75,67 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
     transition: background 0.2s ease, color 0.2s ease;
   }
   button, input, select { font-family: inherit; }
-  button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  button { touch-action: manipulation; -webkit-user-select: none; user-select: none; background: none; }
+  ::selection { background: var(--selection-bg); }
+  svg { display: block; }
 
   .app {
     height: 100dvh;
     display: flex;
     flex-direction: column;
     padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-    gap: 8px;
+    gap: 10px;
+  }
+
+  /* ---------- Materials (iOS "thin material" blur) ---------- */
+  .material {
+    background: color-mix(in srgb, var(--panel) 78%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .material { background: var(--panel); }
   }
 
   /* ---------- Top bar ---------- */
   .topbar {
+    /* z-index (with position) gives the whole topbar its own stacking
+       context. Without it, .board — a scroll container via overflow:auto,
+       which makes it a stacking context of its own in modern browsers —
+       paints entirely above the topbar's subtree since it comes later in
+       DOM order, no matter what z-index the timer-drawer sets locally. */
     position: relative;
+    z-index: 10;
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--panel);
-    border-radius: 14px;
-    padding: 8px 10px;
-    box-shadow: 0 2px 8px var(--shadow);
+    border-radius: 16px;
+    padding: 8px;
   }
   .timer-chip {
     position: relative;
     z-index: 22;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: var(--panel-2);
-    border: 1px solid var(--border);
     color: var(--text);
     border-radius: 999px;
-    padding: 6px 14px;
+    padding: 7px 14px 7px 10px;
     cursor: pointer;
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-size: 1.05rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .timer-chip .mode-icon { font-size: 0.9rem; opacity: 0.7; }
+  .timer-chip .mode-icon { width: 17px; height: 17px; color: var(--text-dim); flex: 0 0 auto; }
   .timer-chip.time-up { color: var(--red); }
+  .timer-chip.time-up .mode-icon { color: var(--red); }
   .timer-chip.shake { animation: shake 0.35s; }
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
@@ -119,49 +149,58 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    border: 1px solid var(--border);
+    border: none;
     background: var(--panel-2);
     color: var(--text);
-    font-size: 1.1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: transform 0.12s ease, opacity 0.12s ease;
   }
-  .icon-btn:active { transform: scale(0.92); }
-  .icon-btn:disabled { opacity: 0.35; cursor: default; }
+  .icon-btn svg { width: 19px; height: 19px; }
+  .icon-btn:active { transform: scale(0.92); opacity: 0.7; }
+  .icon-btn:disabled { opacity: 0.32; cursor: default; }
   .icon-btn:disabled:active { transform: none; }
-  .icon-btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .icon-btn.primary { background: var(--blue); color: #fff; }
   .spacer { flex: 1 1 auto; }
 
   .timer-drawer-backdrop {
     position: fixed;
     inset: 0;
-    background: transparent;
     z-index: 20;
+    pointer-events: none;
   }
+  .timer-drawer-backdrop.open { pointer-events: auto; }
   .timer-drawer {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 8px);
     left: 0;
     right: 0;
     z-index: 21;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 18px;
     padding: 14px;
-    box-shadow: 0 8px 24px var(--shadow);
+    box-shadow: 0 12px 28px var(--shadow);
     display: flex;
     flex-direction: column;
     gap: 12px;
+    transform-origin: top left;
+    transform: scale(0.94) translateY(-4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;
+  }
+  .timer-drawer.open {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
   }
   .seg {
     display: flex;
     background: var(--panel-2);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 3px;
-    gap: 3px;
+    border-radius: 10px;
+    padding: 2px;
+    gap: 2px;
   }
   .seg button {
     flex: 1;
@@ -169,12 +208,19 @@
     background: transparent;
     color: var(--text-dim);
     padding: 7px 10px;
-    border-radius: 999px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 590;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   }
-  .seg button.active { background: var(--blue); color: #fff; }
+  .seg button.active {
+    background: var(--panel-3);
+    color: var(--blue);
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+  :root[data-theme="light"] .seg { background: #E5E5EA; }
+  :root[data-theme="light"] .seg button.active { background: #FFFFFF; }
 
   .timer-set-fields {
     display: flex;
@@ -188,27 +234,25 @@
   .timer-set-fields select {
     font-size: 16px;
     background: var(--panel-2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: none;
+    border-radius: 8px;
     color: var(--text);
     padding: 6px 8px;
   }
   .pill-btn {
     background: var(--panel-2);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    padding: 9px 16px;
+    border: none;
+    color: var(--text);
+    padding: 10px 18px;
     border-radius: 999px;
     cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: 0.92rem;
+    font-weight: 590;
+    transition: transform 0.12s ease, opacity 0.12s ease;
   }
-  .pill-btn:active { transform: scale(0.96); }
-  .pill-btn:hover { color: var(--text); border-color: var(--text-faint); }
-  .pill-btn.accent { color: var(--blue); border-color: var(--blue); }
-  .pill-btn.accent:hover { color: #fff; background: var(--blue); }
-  .pill-btn.danger { color: var(--red); border-color: var(--red); }
-  .pill-btn.danger:hover { color: #fff; background: var(--red); }
+  .pill-btn:active { transform: scale(0.96); opacity: 0.75; }
+  .pill-btn.accent { background: var(--blue); color: #fff; }
+  .pill-btn.danger { background: var(--red); color: #fff; }
   .pill-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
   .pill-btn.full { width: 100%; }
 
@@ -224,21 +268,21 @@
   .player {
     position: relative;
     background: var(--panel);
-    border-radius: calc(14px * var(--card-scale, 1));
+    border: 1px solid var(--border);
+    border-radius: calc(16px * var(--card-scale, 1));
     padding: calc(16px * var(--card-scale, 1)) calc(12px * var(--card-scale, 1));
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: calc(8px * var(--card-scale, 1));
-    border-top: calc(5px * var(--card-scale, 1)) solid var(--accent, #4f8ef7);
-    box-shadow: 0 2px 8px var(--shadow);
+    border-top: calc(4px * var(--card-scale, 1)) solid var(--accent, #0A84FF);
     min-width: 0;
     min-height: 0;
     transition: box-shadow 0.2s ease;
   }
   .player.is-turn {
-    box-shadow: 0 0 0 calc(3px * var(--card-scale, 1)) var(--accent, #4f8ef7), 0 4px 16px var(--shadow);
+    box-shadow: 0 0 0 calc(2.5px * var(--card-scale, 1)) var(--accent, #0A84FF);
   }
 
   .remove-player {
@@ -247,23 +291,27 @@
     right: calc(6px * var(--card-scale, 1));
     width: calc(24px * var(--card-scale, 1));
     height: calc(24px * var(--card-scale, 1));
-    min-width: 18px;
-    min-height: 18px;
+    min-width: 20px;
+    min-height: 20px;
     border-radius: 50%;
     border: none;
     background: var(--panel-2);
     color: var(--text-dim);
-    font-size: calc(0.9rem * var(--card-scale, 1));
-    line-height: 1;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .remove-player:hover { background: var(--red); color: #fff; }
+  .remove-player svg { width: 55%; height: 55%; }
+  .remove-player:active { transform: scale(0.9); }
 
   .crown {
     position: absolute;
     top: calc(6px * var(--card-scale, 1));
-    left: calc(8px * var(--card-scale, 1));
-    font-size: calc(1rem * var(--card-scale, 1));
+    left: calc(7px * var(--card-scale, 1));
+    width: calc(16px * var(--card-scale, 1));
+    height: calc(16px * var(--card-scale, 1));
+    color: #FFD60A;
   }
 
   .player-name {
@@ -272,15 +320,15 @@
     text-align: center;
     background: transparent;
     border: none;
-    border-bottom: 2px dashed var(--border);
+    border-bottom: 1.5px dashed var(--border);
     color: var(--text);
     font-size: calc(14px * var(--text-scale, 1));
-    font-weight: 600;
+    font-weight: 590;
     padding: calc(4px * var(--card-scale, 1)) 2px;
     outline: none;
     text-overflow: ellipsis;
   }
-  .player-name:focus { border-bottom-color: var(--text-faint); }
+  .player-name:focus { border-bottom-color: var(--blue); }
 
   .score-wrap {
     display: flex;
@@ -298,34 +346,32 @@
     outline: 2px solid var(--blue);
     outline-offset: 3px;
   }
-  .score {
+  .score, .score-input {
     font-size: calc(3rem * var(--text-scale, 1));
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
     color: var(--text);
     line-height: 1;
-    min-width: 1.4ch;
     text-align: center;
   }
+  .score { min-width: 1.4ch; }
   .score-input {
-    font-size: calc(3rem * var(--text-scale, 1));
-    font-weight: 700;
-    color: var(--text);
-    line-height: 1;
+    min-width: 1.4ch;
     width: calc(3.4ch + 8px);
-    text-align: center;
     background: var(--panel-2);
-    border: 1px solid var(--blue);
+    border: 1.5px solid var(--blue);
     border-radius: 8px;
     outline: none;
   }
   .edit-hint {
     position: absolute;
-    top: calc(-2px * var(--card-scale, 1));
-    right: calc(-14px * var(--card-scale, 1));
-    font-size: calc(0.7rem * var(--card-scale, 1));
-    opacity: 0.4;
+    top: calc(-3px * var(--card-scale, 1));
+    right: calc(-15px * var(--card-scale, 1));
+    width: calc(13px * var(--card-scale, 1));
+    height: calc(13px * var(--card-scale, 1));
+    color: var(--text-faint);
   }
-  .score-tap:active { opacity: 0.7; }
+  .score-tap:active { opacity: 0.6; }
 
   button.step {
     width: calc(46px * var(--card-scale, 1));
@@ -334,13 +380,16 @@
     min-height: 32px;
     border-radius: 50%;
     border: none;
-    font-size: calc(1.5rem * var(--card-scale, 1));
-    font-weight: 700;
     color: #fff;
     cursor: pointer;
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease;
   }
-  button.step:active { transform: scale(0.9); }
+  button.step svg { width: 46%; height: 46%; }
+  button.step:active { transform: scale(0.88); }
   .plus { background: var(--green); }
   .minus { background: var(--red); }
 
@@ -351,6 +400,8 @@
     gap: 8px;
     justify-content: center;
     flex-wrap: wrap;
+    border-radius: 16px;
+    padding: 8px;
   }
 
   /* ---------- Toast ---------- */
@@ -359,19 +410,24 @@
     left: 50%;
     top: max(70px, calc(env(safe-area-inset-top) + 60px));
     transform: translateX(-50%) translateY(-10px);
-    background: var(--panel-2);
-    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--panel-2) 85%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
     color: var(--text);
-    padding: 9px 18px;
+    padding: 10px 18px;
     border-radius: 999px;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
+    font-weight: 550;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease, transform 0.2s ease;
     z-index: 50;
     max-width: 90vw;
     text-align: center;
-    box-shadow: 0 4px 16px var(--shadow);
+    box-shadow: 0 6px 20px var(--shadow);
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .toast { background: var(--panel-2); }
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -379,10 +435,16 @@
   .sheet-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0);
     display: flex;
     align-items: flex-end;
     z-index: 40;
+    pointer-events: none;
+    transition: background 0.3s ease;
+  }
+  .sheet-overlay.open {
+    background: var(--overlay);
+    pointer-events: auto;
   }
   .sheet {
     width: 100%;
@@ -392,73 +454,105 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 -8px 30px var(--shadow);
+    transform: translateY(100%);
+    transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .sheet-overlay.open .sheet { transform: translateY(0); }
+  .sheet-grabber {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--border);
+    margin: 8px auto 0;
   }
   .sheet-header {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 18px 8px;
+    padding: 12px 18px 8px;
   }
-  .sheet-header h2 { margin: 0; font-size: 1.15rem; }
+  .sheet-header h2 { margin: 0; font-size: 1.1rem; font-weight: 650; }
   .sheet-body {
     flex: 1 1 auto;
     overflow-y: auto;
-    padding: 4px 18px calc(24px + env(safe-area-inset-bottom));
+    padding: 4px 16px calc(24px + env(safe-area-inset-bottom));
   }
-  .settings-section { margin-bottom: 22px; }
+  .settings-section { margin-bottom: 24px; }
   .settings-section h3 {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
+    padding: 0 14px;
     font-size: 0.75rem;
+    font-weight: 590;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-faint);
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+  }
+  .settings-card {
+    background: var(--panel);
+    border-radius: 14px;
+    overflow: hidden;
   }
   .setting-row {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
   }
-  .setting-row:last-child { border-bottom: none; }
-  .setting-row > span { font-size: 0.95rem; }
+  .setting-row::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--border);
+  }
+  .setting-row:last-child::after { display: none; }
+  .setting-row > span { font-size: 0.98rem; }
   .setting-row .seg { max-width: 200px; }
 
-  .switch { position: relative; display: inline-block; width: 46px; height: 27px; flex: 0 0 auto; }
-  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch { position: relative; display: inline-block; width: 51px; height: 31px; flex: 0 0 auto; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
   .switch .slider {
     position: absolute; inset: 0; cursor: pointer;
-    background: var(--panel-2); border: 1px solid var(--border);
-    border-radius: 999px; transition: 0.15s;
+    background: var(--panel-2);
+    border-radius: 999px;
+    transition: background 0.2s ease;
   }
   .switch .slider::before {
-    content: ""; position: absolute; height: 19px; width: 19px; left: 3px; top: 3px;
-    background: #fff; border-radius: 50%; transition: 0.15s;
+    content: ""; position: absolute; height: 27px; width: 27px; left: 2px; top: 2px;
+    background: #fff; border-radius: 50%;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2), 0 0 0 0.5px rgba(0,0,0,0.04);
+    transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), width 0.15s ease;
   }
-  .switch input:checked + .slider { background: var(--blue); border-color: var(--blue); }
-  .switch input:checked + .slider::before { transform: translateX(19px); }
+  .switch input:checked + .slider { background: var(--green); }
+  .switch input:checked + .slider::before { transform: translateX(20px); }
+  .switch input:active + .slider::before { width: 31px; }
+  .switch input:checked:active + .slider::before { transform: translateX(16px); }
 
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <header class="topbar">
+  <header class="topbar material">
     <button class="timer-chip" id="timerChip" aria-label="Open timer settings">
-      <span class="mode-icon" id="timerModeIcon">🕐</span>
+      <span class="mode-icon" id="timerModeIcon"></span>
       <span id="timerChipTime">05:00</span>
     </button>
-    <button class="icon-btn primary" id="timerToggleBtn" aria-label="Start timer">▶</button>
-    <button class="icon-btn" id="timerResetBtn" aria-label="Reset timer">↺</button>
+    <button class="icon-btn primary" id="timerToggleBtn" aria-label="Start timer"></button>
+    <button class="icon-btn" id="timerResetBtn" aria-label="Reset timer"></button>
     <div class="spacer"></div>
-    <button class="icon-btn" id="undoBtn" aria-label="Undo" disabled>↶</button>
-    <button class="icon-btn" id="redoBtn" aria-label="Redo" disabled>↷</button>
-    <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+    <button class="icon-btn" id="undoBtn" aria-label="Undo" disabled></button>
+    <button class="icon-btn" id="redoBtn" aria-label="Redo" disabled></button>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings"></button>
 
-    <div class="timer-drawer-backdrop" id="timerDrawerBackdrop" hidden></div>
-    <div class="timer-drawer" id="timerDrawer" hidden>
+    <div class="timer-drawer-backdrop" id="timerDrawerBackdrop" inert></div>
+    <div class="timer-drawer material" id="timerDrawer" inert>
       <div class="seg" id="timerModeSeg">
         <button data-mode="countdown" class="active">Countdown</button>
         <button data-mode="stopwatch">Stopwatch</button>
@@ -475,7 +569,7 @@
   <main class="board" id="board"></main>
 
   <footer class="bottombar">
-    <button class="pill-btn" id="nextTurnBtn" hidden>Next turn →</button>
+    <button class="pill-btn" id="nextTurnBtn" hidden>Next turn</button>
     <button class="pill-btn accent" id="addPlayerBtn">+ Player</button>
     <button class="pill-btn" id="resetScoresBtn">Reset Scores</button>
   </footer>
@@ -483,71 +577,77 @@
 
 <div class="toast" id="toast"></div>
 
-<div class="sheet-overlay" id="settingsOverlay" hidden>
+<div class="sheet-overlay" id="settingsOverlay" inert>
   <div class="sheet" role="dialog" aria-label="Settings">
+    <div class="sheet-grabber"></div>
     <div class="sheet-header">
       <h2>Settings</h2>
-      <button class="icon-btn" id="closeSettingsBtn" aria-label="Close settings">✕</button>
+      <button class="icon-btn" id="closeSettingsBtn" aria-label="Close settings"></button>
     </div>
     <div class="sheet-body">
       <div class="settings-section">
         <h3>Scoring</h3>
-        <div class="setting-row">
-          <span>Score step</span>
-          <div class="seg" id="scoreStepSeg">
-            <button data-step="1" class="active">1</button>
-            <button data-step="5">5</button>
-            <button data-step="10">10</button>
+        <div class="settings-card">
+          <div class="setting-row">
+            <span>Score step</span>
+            <div class="seg" id="scoreStepSeg">
+              <button data-step="1" class="active">1</button>
+              <button data-step="5">5</button>
+              <button data-step="10">10</button>
+            </div>
           </div>
-        </div>
-        <div class="setting-row">
-          <span>Allow negative scores</span>
-          <label class="switch"><input type="checkbox" id="allowNegativeToggle" checked><span class="slider"></span></label>
-        </div>
-        <div class="setting-row">
-          <span>Highlight leader</span>
-          <div class="seg" id="winnerRuleSeg">
-            <button data-rule="highest" class="active">Highest</button>
-            <button data-rule="lowest">Lowest</button>
-            <button data-rule="off">Off</button>
+          <div class="setting-row">
+            <span>Allow negative scores</span>
+            <label class="switch"><input type="checkbox" id="allowNegativeToggle" checked><span class="slider"></span></label>
           </div>
-        </div>
-        <div class="setting-row">
-          <span>Turn tracking</span>
-          <label class="switch"><input type="checkbox" id="turnTrackingToggle"><span class="slider"></span></label>
+          <div class="setting-row">
+            <span>Highlight leader</span>
+            <div class="seg" id="winnerRuleSeg">
+              <button data-rule="highest" class="active">Highest</button>
+              <button data-rule="lowest">Lowest</button>
+              <button data-rule="off">Off</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span>Turn tracking</span>
+            <label class="switch"><input type="checkbox" id="turnTrackingToggle"><span class="slider"></span></label>
+          </div>
         </div>
       </div>
 
       <div class="settings-section">
         <h3>Timer &amp; Alerts</h3>
-        <div class="setting-row">
-          <span>Sound</span>
-          <label class="switch"><input type="checkbox" id="soundToggle" checked><span class="slider"></span></label>
-        </div>
-        <div class="setting-row">
-          <span>Vibration</span>
-          <label class="switch"><input type="checkbox" id="vibrationToggle" checked><span class="slider"></span></label>
-        </div>
-        <div class="setting-row">
-          <span>Keep screen awake</span>
-          <label class="switch"><input type="checkbox" id="keepAwakeToggle"><span class="slider"></span></label>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h3>Display</h3>
-        <div class="setting-row">
-          <span>Theme</span>
-          <div class="seg" id="themeSeg">
-            <button data-theme="system" class="active">Auto</button>
-            <button data-theme="dark">Dark</button>
-            <button data-theme="light">Light</button>
+        <div class="settings-card">
+          <div class="setting-row">
+            <span>Sound</span>
+            <label class="switch"><input type="checkbox" id="soundToggle" checked><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <span>Vibration</span>
+            <label class="switch"><input type="checkbox" id="vibrationToggle" checked><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <span>Keep screen awake</span>
+            <label class="switch"><input type="checkbox" id="keepAwakeToggle"><span class="slider"></span></label>
           </div>
         </div>
       </div>
 
       <div class="settings-section">
-        <h3>Danger Zone</h3>
+        <h3>Display</h3>
+        <div class="settings-card">
+          <div class="setting-row">
+            <span>Theme</span>
+            <div class="seg" id="themeSeg">
+              <button data-theme="system" class="active">Auto</button>
+              <button data-theme="dark">Dark</button>
+              <button data-theme="light">Light</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <button class="pill-btn danger full" id="resetAllBtn">Reset Everything</button>
       </div>
     </div>
@@ -561,7 +661,31 @@
   var STATE_KEY = 'score-tracker-state';
   var SETTINGS_KEY = 'score-tracker-settings';
   var MAX_PLAYERS = 12;
-  var ACCENTS = ['#4f8ef7', '#f75f4f', '#34c759', '#f7b84f', '#a374f7', '#4fd1f7', '#f74fa3', '#c0d94f', '#ff8a5c', '#5ce1e6', '#e65c9c', '#8ce65c'];
+  var ACCENTS = ['#0A84FF', '#FF453A', '#30D158', '#FF9F0A', '#BF5AF2', '#64D2FF', '#FF375F', '#FFD60A', '#FF6B57', '#5AC8FA', '#FF2D92', '#A2E057'];
+
+  // ---------- Icons ----------
+  // Hand-built inline SVGs (viewBox 0 0 24 24, stroke-based line icons in the
+  // SF Symbols "regular" style) so the whole app stays a single dependency-
+  // free file — no icon font or external sprite to fetch.
+  var ICON_PATHS = {
+    play: '<path d="M8 5.5v13a1 1 0 0 0 1.53.85l10.5-6.5a1 1 0 0 0 0-1.7L9.53 4.65A1 1 0 0 0 8 5.5z" fill="currentColor" stroke="none"/>',
+    pause: '<rect x="6" y="5" width="4.5" height="14" rx="1.3" fill="currentColor" stroke="none"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.3" fill="currentColor" stroke="none"/>',
+    resetTimer: '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 3.5v5h-5"/>',
+    undo: '<path d="M9 15 4 10l5-5"/><path d="M4 10h10.5a5.5 5.5 0 0 1 0 11H12"/>',
+    redo: '<path d="M15 15l5-5-5-5"/><path d="M20 10H9.5a5.5 5.5 0 0 0 0 11H12"/>',
+    settings: '<line x1="4" y1="6.5" x2="14" y2="6.5"/><line x1="17" y1="6.5" x2="20" y2="6.5"/><circle cx="15.5" cy="6.5" r="1.9"/>' +
+      '<line x1="4" y1="12" x2="9" y2="12"/><line x1="12.2" y1="12" x2="20" y2="12"/><circle cx="10.6" cy="12" r="1.9"/>' +
+      '<line x1="4" y1="17.5" x2="12" y2="17.5"/><line x1="15" y1="17.5" x2="20" y2="17.5"/><circle cx="13.5" cy="17.5" r="1.9"/>',
+    close: '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
+    crown: '<path d="M3.5 8.5 7 11.5 12 5l5 6.5 3.5-3-1.6 9.5H5.1L3.5 8.5z" fill="currentColor" stroke="currentColor" stroke-width="1"/>',
+    pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>',
+    stopwatch: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.3V13l2.4 1.9"/><path d="M9.5 2.3h5"/><path d="M12 2.3V5"/>'
+  };
+  function svgIcon(name, strokeWidth) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (strokeWidth || 1.8) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICON_PATHS[name] + '</svg>';
+  }
 
   var els = {};
   ['app', 'board', 'timerChip', 'timerChipTime', 'timerModeIcon', 'timerToggleBtn',
@@ -571,6 +695,14 @@
    'closeSettingsBtn', 'scoreStepSeg', 'allowNegativeToggle', 'winnerRuleSeg',
    'turnTrackingToggle', 'soundToggle', 'vibrationToggle', 'keepAwakeToggle', 'themeSeg',
    'resetAllBtn'].forEach(function (id) { els[id] = document.getElementById(id); });
+
+  // Static icon-only buttons: fill in their SVG once at startup.
+  els.timerToggleBtn.innerHTML = svgIcon('play');
+  els.timerResetBtn.innerHTML = svgIcon('resetTimer');
+  els.undoBtn.innerHTML = svgIcon('undo');
+  els.redoBtn.innerHTML = svgIcon('redo');
+  els.settingsBtn.innerHTML = svgIcon('settings');
+  els.closeSettingsBtn.innerHTML = svgIcon('close');
 
   var persistenceBroken = false;
 
@@ -757,9 +889,9 @@
   function updateTimerDisplay() {
     var seconds = timer.mode === 'countdown' ? countdownRemaining() : stopwatchElapsed();
     els.timerChipTime.textContent = formatTime(seconds);
-    els.timerModeIcon.textContent = timer.mode === 'countdown' ? '🕐' : '⏱';
+    els.timerModeIcon.innerHTML = svgIcon(timer.mode === 'countdown' ? 'clock' : 'stopwatch', 1.9);
     els.timerChip.classList.toggle('time-up', timer.mode === 'countdown' && seconds <= 0);
-    els.timerToggleBtn.textContent = timer.running ? '⏸' : '▶';
+    els.timerToggleBtn.innerHTML = svgIcon(timer.running ? 'pause' : 'play');
     els.timerToggleBtn.setAttribute('aria-label', timer.running ? 'Pause timer' : 'Start timer');
   }
 
@@ -853,12 +985,16 @@
   }
 
   function openTimerDrawer() {
-    els.timerDrawer.hidden = false;
-    els.timerDrawerBackdrop.hidden = false;
+    els.timerDrawer.classList.add('open');
+    els.timerDrawerBackdrop.classList.add('open');
+    els.timerDrawer.inert = false;
+    els.timerDrawerBackdrop.inert = false;
   }
   function closeTimerDrawer() {
-    els.timerDrawer.hidden = true;
-    els.timerDrawerBackdrop.hidden = true;
+    els.timerDrawer.classList.remove('open');
+    els.timerDrawerBackdrop.classList.remove('open');
+    els.timerDrawer.inert = true;
+    els.timerDrawerBackdrop.inert = true;
   }
 
   // ---------- Grid layout ----------
@@ -905,6 +1041,30 @@
       { id: 1, name: 'Player 1', score: 0 },
       { id: 2, name: 'Player 2', score: 0 }
     ];
+  }
+
+  // The keyboard covering a focused field is a mobile-web classic: html/body
+  // are overflow:hidden here (by design, for the no-scroll layout), so the
+  // browser has nothing to auto-scroll when the keyboard shows up. Scroll the
+  // field into view ourselves, once immediately and once again when the
+  // visualViewport actually finishes shrinking (Android in particular can
+  // take a beat, and a fixed setTimeout alone would run before that resize).
+  function keepFieldVisible(el) {
+    var scrollNow = function () { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+    scrollNow();
+    setTimeout(scrollNow, 300);
+    if (window.visualViewport) {
+      var vv = window.visualViewport;
+      var onResize = function () {
+        if (document.activeElement === el) scrollNow();
+      };
+      vv.addEventListener('resize', onResize);
+      var cleanup = function () {
+        vv.removeEventListener('resize', onResize);
+        el.removeEventListener('blur', cleanup);
+      };
+      el.addEventListener('blur', cleanup, { once: true });
+    }
   }
 
   function leaderIds() {
@@ -963,13 +1123,13 @@
 
       var crown = document.createElement('div');
       crown.className = 'crown';
-      crown.textContent = '👑';
+      crown.innerHTML = svgIcon('crown');
       crown.hidden = true;
       card.appendChild(crown);
 
       var removeBtn = document.createElement('button');
       removeBtn.className = 'remove-player';
-      removeBtn.textContent = '×';
+      removeBtn.innerHTML = svgIcon('close', 2.2);
       removeBtn.title = 'Remove player';
       removeBtn.setAttribute('aria-label', 'Remove ' + p.name);
       removeBtn.onclick = function () { removePlayer(p.id); };
@@ -981,7 +1141,7 @@
       nameInput.maxLength = 24;
       nameInput.setAttribute('aria-label', 'Player name');
       nameInput.oninput = function (e) { p.name = e.target.value; saveState(); };
-      nameInput.addEventListener('focus', function (e) { e.target.select(); });
+      nameInput.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
       card.appendChild(nameInput);
 
       var scoreWrap = document.createElement('div');
@@ -989,7 +1149,7 @@
 
       var minusBtn = document.createElement('button');
       minusBtn.className = 'step minus';
-      minusBtn.textContent = '−';
+      minusBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>';
       minusBtn.setAttribute('aria-label', 'Decrease score');
 
       var scoreTap = document.createElement('div');
@@ -1002,7 +1162,7 @@
       scoreEl.textContent = p.score;
       var editHint = document.createElement('span');
       editHint.className = 'edit-hint';
-      editHint.textContent = '✎';
+      editHint.innerHTML = svgIcon('pencil', 2.2);
       scoreTap.appendChild(scoreEl);
       scoreTap.appendChild(editHint);
       scoreTap.addEventListener('click', function () { beginScoreEdit(p, scoreTap, scoreEl); });
@@ -1012,7 +1172,7 @@
 
       var plusBtn = document.createElement('button');
       plusBtn.className = 'step plus';
-      plusBtn.textContent = '+';
+      plusBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
       plusBtn.setAttribute('aria-label', 'Increase score');
 
       var minusHold = beginPressHold(function () { applyDelta(p, scoreEl, -settings.scoreStep); });
@@ -1063,7 +1223,7 @@
     input.className = 'score-input';
     input.value = p.score;
     scoreTap.replaceChild(input, scoreEl);
-    input.addEventListener('focus', function (e) { e.target.select(); });
+    input.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
     input.focus();
     input.select();
 
@@ -1080,6 +1240,12 @@
     }
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', function (e) {
+      // Without stopping propagation, Enter/Escape bubble up to scoreTap's
+      // own keydown handler (added for keyboard access when the div itself
+      // is focused) — which would immediately reopen a fresh edit right
+      // after this one commits, since by the time the bubbled event
+      // arrives, .blur() has already run commit() and removed this input.
+      e.stopPropagation();
       if (e.key === 'Enter') input.blur();
       if (e.key === 'Escape') { input.value = p.score; input.blur(); }
     });
@@ -1140,8 +1306,17 @@
     });
   }
 
-  function openSettings() { els.settingsOverlay.hidden = false; }
-  function closeSettings() { els.settingsOverlay.hidden = true; }
+  var settingsReturnFocus = null;
+  function openSettings() {
+    settingsReturnFocus = document.activeElement;
+    els.settingsOverlay.classList.add('open');
+    els.settingsOverlay.inert = false;
+  }
+  function closeSettings() {
+    els.settingsOverlay.classList.remove('open');
+    els.settingsOverlay.inert = true;
+    if (settingsReturnFocus && typeof settingsReturnFocus.focus === 'function') settingsReturnFocus.focus();
+  }
 
   function syncSettingsUI() {
     setSegActive(els.scoreStepSeg, 'step', settings.scoreStep);
@@ -1248,7 +1423,7 @@
 
   // ---------- Wire up events ----------
   els.timerChip.addEventListener('click', function () {
-    els.timerDrawer.hidden ? openTimerDrawer() : closeTimerDrawer();
+    els.timerDrawer.classList.contains('open') ? closeTimerDrawer() : openTimerDrawer();
   });
   els.timerDrawerBackdrop.addEventListener('click', closeTimerDrawer);
   els.timerModeSeg.addEventListener('click', function (e) {
