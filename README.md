@@ -9,11 +9,13 @@ Live: https://timvanderwoude.github.io/score-tracker
 - Add/remove players (up to 12), each with a running score and its own accent color
 - Score grid auto-fits the screen — cards resize to whatever grid keeps everyone visible without scrolling, in portrait or landscape
 - Tap +/− to step a score, press-and-hold to accelerate, or tap the number to type an exact value
-- Timer with Countdown and Stopwatch modes (start/pause/reset), tucked into a compact drawer so it doesn't eat board space
-- Multi-level undo covers every destructive action (score changes, add/remove player, reset) — no confirmation dialogs needed
+- Optional quick-add chip buttons per card for games that don't score in single fixed steps (e.g. 2/3-point baskets, cribbage's odd point values, Yahtzee category scores) — configurable in Settings, with a few example presets to start from
+- Timer with Countdown and Stopwatch modes (start/pause/reset), tucked into a compact drawer so it doesn't eat board space; duration is set microwave-style (type "130" for 1:30) instead of scrolling two pickers
+- Multi-level undo/redo covers every destructive action (score changes, add/remove player, reset) — no confirmation dialogs needed
 - Turn tracking with a "Next turn" indicator, and an optional leader crown (highest or lowest score wins)
-- Settings sheet: score step size, allow/disallow negative scores, sound, vibration, keep-screen-awake, light/dark/auto theme
+- Settings sheet: score step size, quick-add chips, allow/disallow negative scores, sound, vibration, keep-screen-awake, light/dark/auto theme
 - State persists locally (localStorage) — including a running timer, which resumes correctly across a reload
+- Visual design follows Apple's iOS Human Interface Guidelines (system colors, materials, native control shapes) so it feels like an installed app rather than a web page, especially when added to an iPhone/Android home screen
 
 ## Development
 

@@ -44,6 +44,12 @@
     --shadow: rgba(0, 0, 0, 0.45);
     --selection-bg: rgba(10, 132, 255, 0.35);
     --overlay: rgba(0, 0, 0, 0.55);
+    /* Plain rgba rather than color-mix(): color-mix() shipped in Safari/
+       Firefox slightly later than backdrop-filter did, so a browser that
+       supports the blur but not the mix function would otherwise render
+       these panels with no background at all. */
+    --panel-translucent: rgba(28, 28, 30, 0.78);
+    --panel-2-translucent: rgba(44, 44, 46, 0.85);
     color-scheme: dark;
   }
   :root[data-theme="light"] {
@@ -61,6 +67,8 @@
     --shadow: rgba(0, 0, 0, 0.1);
     --selection-bg: rgba(0, 122, 255, 0.22);
     --overlay: rgba(0, 0, 0, 0.4);
+    --panel-translucent: rgba(255, 255, 255, 0.78);
+    --panel-2-translucent: rgba(233, 233, 235, 0.85);
     color-scheme: light;
   }
 
@@ -85,6 +93,11 @@
   svg { display: block; }
 
   .app {
+    /* vh first as a fallback for browsers without dvh support (Safari <15.4,
+       Firefox <101); the dvh line overrides it wherever it's understood. An
+       unsupported declaration is simply ignored, so this is a safe two-line
+       progressive enhancement rather than an either/or branch. */
+    height: 100vh;
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -94,7 +107,7 @@
 
   /* ---------- Materials (iOS "thin material" blur) ---------- */
   .material {
-    background: color-mix(in srgb, var(--panel) 78%, transparent);
+    background: var(--panel-translucent);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     backdrop-filter: blur(20px) saturate(180%);
   }
@@ -226,18 +239,38 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
     color: var(--text-dim);
     font-size: 0.9rem;
   }
-  .timer-set-fields select {
-    font-size: 16px;
+  .timer-quick-input {
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     background: var(--panel-2);
     border: none;
     border-radius: 8px;
     color: var(--text);
-    padding: 6px 8px;
+    padding: 7px 10px;
+    width: 6ch;
+    text-align: center;
+  }
+  .timer-quick-preview {
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+    min-width: 4.5ch;
+  }
+  .timer-quick-hint {
+    flex-basis: 100%;
+    /* Flex items default to min-width:auto, which refuses to shrink below
+       the content's unwrapped intrinsic width — without this, long text
+       in a wrapping flex container overflows instead of wrapping. */
+    min-width: 0;
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--text-faint);
   }
   .pill-btn {
     background: var(--panel-2);
@@ -393,6 +426,40 @@
   .plus { background: var(--green); }
   .minus { background: var(--red); }
 
+  /* Quick-add chips: optional secondary row of preset values (e.g. +2, +3
+     for basketball, or a custom cribbage/Yahtzee list) beneath the main
+     +/- buttons. Horizontal scroll rather than wrap keeps a card's height
+     predictable regardless of how many chips are configured, which the
+     no-scroll grid layout depends on to size everything correctly. */
+  .chip-row {
+    display: flex;
+    gap: calc(6px * var(--card-scale, 1));
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: 1px calc(3px * var(--card-scale, 1)) 3px;
+    mask-image: linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
+  }
+  .chip-row::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  .chip {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 999px;
+    padding: calc(5px * var(--card-scale, 1)) calc(10px * var(--card-scale, 1));
+    font-size: calc(0.72rem * var(--text-scale, 1));
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    cursor: pointer;
+  }
+  .chip:active { transform: scale(0.9); }
+  .chip-pos { background: var(--green); }
+  .chip-neg { background: var(--red); }
+
   /* ---------- Bottom bar ---------- */
   .bottombar {
     flex: 0 0 auto;
@@ -410,7 +477,7 @@
     left: 50%;
     top: max(70px, calc(env(safe-area-inset-top) + 60px));
     transform: translateX(-50%) translateY(-10px);
-    background: color-mix(in srgb, var(--panel-2) 85%, transparent);
+    background: var(--panel-2-translucent);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     backdrop-filter: blur(20px) saturate(180%);
     color: var(--text);
@@ -448,6 +515,7 @@
   }
   .sheet {
     width: 100%;
+    max-height: min(88vh, 720px);
     max-height: min(88dvh, 720px);
     background: var(--bg);
     border-radius: 20px 20px 0 0;
@@ -514,6 +582,39 @@
   .setting-row:last-child::after { display: none; }
   .setting-row > span { font-size: 0.98rem; }
   .setting-row .seg { max-width: 200px; }
+  .setting-row.stacked { flex-direction: column; align-items: stretch; gap: 10px; }
+  .setting-row.stacked > span { font-size: 0.98rem; }
+  .quick-chips-input {
+    width: 100%;
+    font-size: 16px;
+    background: var(--panel-2);
+    border: none;
+    border-radius: 8px;
+    color: var(--text);
+    padding: 9px 10px;
+  }
+  .suggestion-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+  }
+  .suggestion-row::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  .suggestion-chip {
+    flex: 0 0 auto;
+    border: none;
+    background: var(--panel-2);
+    color: var(--blue);
+    font-size: 0.82rem;
+    font-weight: 590;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .suggestion-chip:active { opacity: 0.7; }
+  .suggestion-chip.clear { color: var(--text-dim); }
 
   .switch { position: relative; display: inline-block; width: 51px; height: 31px; flex: 0 0 auto; }
   .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
@@ -559,9 +660,10 @@
       </div>
       <div class="timer-set-fields" id="timerSetFields">
         <span>Set:</span>
-        <select id="timerMin"></select> min
-        <select id="timerSec"></select> sec
+        <input class="timer-quick-input" id="timerQuickInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" aria-label="Timer duration">
+        <span class="timer-quick-preview" id="timerQuickPreview">→ 05:00</span>
         <button class="pill-btn accent" id="applyTimerBtn">Set</button>
+        <span class="timer-quick-hint">Like a microwave: 3 = 3 sec, 30 = 30 sec, 300 = 3 min</span>
       </div>
     </div>
   </header>
@@ -594,6 +696,17 @@
               <button data-step="1" class="active">1</button>
               <button data-step="5">5</button>
               <button data-step="10">10</button>
+            </div>
+          </div>
+          <div class="setting-row stacked">
+            <span>Quick-add buttons</span>
+            <input class="quick-chips-input" id="quickChipsInput" type="text" inputmode="numeric" placeholder="e.g. 2, 3, 5" aria-label="Custom quick-add values, comma separated">
+            <div class="suggestion-row" id="quickChipsSuggestions">
+              <button type="button" class="suggestion-chip" data-value="2, 3">Basketball</button>
+              <button type="button" class="suggestion-chip" data-value="2, 3, 4, 6, 8, 12, 15">Cribbage</button>
+              <button type="button" class="suggestion-chip" data-value="5, 10, 15, 20, 25, 30, 40, 50">Yahtzee</button>
+              <button type="button" class="suggestion-chip" data-value="-20, -40, -60, -100">Darts</button>
+              <button type="button" class="suggestion-chip clear" data-value="">Clear</button>
             </div>
           </div>
           <div class="setting-row">
@@ -690,9 +803,10 @@
   var els = {};
   ['app', 'board', 'timerChip', 'timerChipTime', 'timerModeIcon', 'timerToggleBtn',
    'undoBtn', 'redoBtn', 'settingsBtn', 'timerDrawer', 'timerDrawerBackdrop', 'timerModeSeg',
-   'timerSetFields', 'timerMin', 'timerSec', 'applyTimerBtn', 'timerResetBtn',
+   'timerSetFields', 'timerQuickInput', 'timerQuickPreview', 'applyTimerBtn', 'timerResetBtn',
    'nextTurnBtn', 'addPlayerBtn', 'resetScoresBtn', 'toast', 'settingsOverlay',
-   'closeSettingsBtn', 'scoreStepSeg', 'allowNegativeToggle', 'winnerRuleSeg',
+   'closeSettingsBtn', 'scoreStepSeg', 'quickChipsInput', 'quickChipsSuggestions',
+   'allowNegativeToggle', 'winnerRuleSeg',
    'turnTrackingToggle', 'soundToggle', 'vibrationToggle', 'keepAwakeToggle', 'themeSeg',
    'resetAllBtn'].forEach(function (id) { els[id] = document.getElementById(id); });
 
@@ -709,6 +823,7 @@
   var settings = {
     theme: 'system',
     scoreStep: 1,
+    quickChips: [],       // optional preset buttons per card, e.g. [2, 3] or [-20, -40, -60]
     allowNegative: true,
     winnerRule: 'highest',
     turnTracking: false,
@@ -855,19 +970,26 @@
   }
 
   // ---------- Timer ----------
-  function populateTimerSelects() {
-    for (var m = 0; m <= 59; m++) {
-      var o1 = document.createElement('option');
-      o1.value = m; o1.textContent = m;
-      if (m === 5) o1.selected = true;
-      els.timerMin.appendChild(o1);
-    }
-    for (var s = 0; s <= 59; s++) {
-      var o2 = document.createElement('option');
-      o2.value = s; o2.textContent = String(s).padStart(2, '0');
-      if (s === 0) o2.selected = true;
-      els.timerSec.appendChild(o2);
-    }
+  // Microwave-style entry: the last two digits typed are seconds, anything
+  // before that is minutes — "3" -> 3 sec, "30" -> 30 sec, "300" -> 3 min,
+  // "130" -> 1 min 30 sec. One field instead of two dropdowns.
+  function microwaveInputToSeconds(str) {
+    var digits = (str || '').replace(/[^0-9]/g, '');
+    if (!digits) return 0;
+    var secPart = digits.slice(-2);
+    var minPart = digits.slice(0, -2);
+    var seconds = parseInt(secPart, 10) || 0;
+    var minutes = minPart ? (parseInt(minPart, 10) || 0) : 0;
+    return minutes * 60 + seconds;
+  }
+  function secondsToMicrowaveInput(totalSec) {
+    totalSec = Math.max(0, Math.round(totalSec));
+    var m = Math.floor(totalSec / 60);
+    var s = totalSec % 60;
+    return m === 0 ? String(s) : String(m) + String(s).padStart(2, '0');
+  }
+  function updateTimerQuickPreview() {
+    els.timerQuickPreview.textContent = '→ ' + formatTime(microwaveInputToSeconds(els.timerQuickInput.value));
   }
 
   function formatTime(totalSec) {
@@ -964,12 +1086,12 @@
   }
 
   function applyTimerSet() {
-    var min = parseInt(els.timerMin.value, 10) || 0;
-    var sec = parseInt(els.timerSec.value, 10) || 0;
-    timer.totalSeconds = min * 60 + sec;
+    timer.totalSeconds = microwaveInputToSeconds(els.timerQuickInput.value);
     timer.remainingAtPause = timer.totalSeconds;
     timer.running = false;
     cancelAnimationFrame(timerRAF);
+    els.timerQuickInput.value = secondsToMicrowaveInput(timer.totalSeconds);
+    updateTimerQuickPreview();
     updateTimerDisplay();
     saveState();
   }
@@ -1018,7 +1140,10 @@
     var g = computeGrid(players.length, w, h);
     els.board.style.gridTemplateColumns = 'repeat(' + g.cols + ', 1fr)';
     els.board.style.gridTemplateRows = 'repeat(' + g.rows + ', 1fr)';
-    var layoutScale = clamp(Math.min(g.cellW / 250, g.cellH / 220), 0.4, 1.3);
+    // Quick-add chips add a row to every card, so the "ideal" card height
+    // used to size everything is taller whenever any are configured.
+    var idealCardH = settings.quickChips.length ? 260 : 220;
+    var layoutScale = clamp(Math.min(g.cellW / 250, g.cellH / idealCardH), 0.4, 1.3);
     // Text should shrink more gently than padding/buttons do, so names and
     // scores stay legible even when many players make cards physically small.
     var textScale = clamp(layoutScale, 0.62, 1.3);
@@ -1185,14 +1310,35 @@
       // (Tab + Enter/Space) activation — that instead dispatches a 'click'
       // with detail:0. Handle that case here without double-firing for
       // real clicks (which always have detail >= 1 and are already
-      // handled above via pointerdown).
-      minusBtn.addEventListener('click', function (e) { if (e.detail === 0) { snapshot(); applyDelta(p, scoreEl, -settings.scoreStep); } });
-      plusBtn.addEventListener('click', function (e) { if (e.detail === 0) { snapshot(); applyDelta(p, scoreEl, settings.scoreStep); } });
+      // handled above via pointerdown). Correlated by timing rather than
+      // by checking event.detail === 0: that's a well-specified signal in
+      // major engines, but a plain "was there a pointerdown on this button
+      // in the last moment" check works identically everywhere regardless
+      // of any one engine's exact UIEvent semantics.
+      var minusPointerAt = 0, plusPointerAt = 0;
+      minusBtn.addEventListener('pointerdown', function () { minusPointerAt = Date.now(); });
+      plusBtn.addEventListener('pointerdown', function () { plusPointerAt = Date.now(); });
+      minusBtn.addEventListener('click', function () { if (Date.now() - minusPointerAt > 500) { snapshot(); applyDelta(p, scoreEl, -settings.scoreStep); } });
+      plusBtn.addEventListener('click', function () { if (Date.now() - plusPointerAt > 500) { snapshot(); applyDelta(p, scoreEl, settings.scoreStep); } });
 
       scoreWrap.appendChild(minusBtn);
       scoreWrap.appendChild(scoreTap);
       scoreWrap.appendChild(plusBtn);
       card.appendChild(scoreWrap);
+
+      if (settings.quickChips.length) {
+        var chipRow = document.createElement('div');
+        chipRow.className = 'chip-row';
+        settings.quickChips.forEach(function (val) {
+          var chip = document.createElement('button');
+          chip.className = 'chip ' + (val < 0 ? 'chip-neg' : 'chip-pos');
+          chip.textContent = (val > 0 ? '+' : '') + val;
+          chip.setAttribute('aria-label', (val > 0 ? 'Add ' : 'Subtract ') + Math.abs(val));
+          chip.addEventListener('click', function () { snapshot(); applyDelta(p, scoreEl, val); });
+          chipRow.appendChild(chip);
+        });
+        card.appendChild(chipRow);
+      }
 
       els.board.appendChild(card);
     });
@@ -1327,6 +1473,14 @@
     els.soundToggle.checked = settings.sound;
     els.vibrationToggle.checked = settings.vibration;
     els.keepAwakeToggle.checked = settings.keepAwake;
+    els.quickChipsInput.value = settings.quickChips.join(', ');
+  }
+
+  function parseQuickChips(str) {
+    return (str || '').split(',')
+      .map(function (s) { return parseInt(s.trim(), 10); })
+      .filter(function (n) { return !isNaN(n) && n !== 0; })
+      .slice(0, 8);
   }
 
   // ---------- Persistence ----------
@@ -1365,7 +1519,6 @@
   }
 
   function loadState() {
-    populateTimerSelects();
     try {
       var raw = localStorage.getItem(STATE_KEY);
       if (raw) {
@@ -1383,8 +1536,7 @@
         if (state.timer) {
           timer.mode = state.timer.mode === 'stopwatch' ? 'stopwatch' : 'countdown';
           timer.totalSeconds = typeof state.timer.totalSeconds === 'number' ? state.timer.totalSeconds : 300;
-          els.timerMin.value = Math.floor(timer.totalSeconds / 60);
-          els.timerSec.value = timer.totalSeconds % 60;
+          els.timerQuickInput.value = secondsToMicrowaveInput(timer.totalSeconds);
           els.timerSetFields.hidden = timer.mode !== 'countdown';
           setSegActive(els.timerModeSeg, 'mode', timer.mode);
 
@@ -1433,6 +1585,11 @@
   els.applyTimerBtn.addEventListener('click', applyTimerSet);
   els.timerResetBtn.addEventListener('click', resetTimer);
   els.timerToggleBtn.addEventListener('click', toggleTimer);
+  els.timerQuickInput.addEventListener('input', updateTimerQuickPreview);
+  els.timerQuickInput.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
+  els.timerQuickInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { applyTimerSet(); e.target.blur(); }
+  });
 
   els.undoBtn.addEventListener('click', undo);
   els.redoBtn.addEventListener('click', redo);
@@ -1450,6 +1607,21 @@
     if (!btn) return;
     settings.scoreStep = Number(btn.dataset.step);
     setSegActive(els.scoreStepSeg, 'step', settings.scoreStep);
+    saveState();
+  });
+  els.quickChipsInput.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
+  els.quickChipsInput.addEventListener('change', function (e) {
+    settings.quickChips = parseQuickChips(e.target.value);
+    e.target.value = settings.quickChips.join(', ');
+    renderBoard();
+    saveState();
+  });
+  els.quickChipsSuggestions.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-value]');
+    if (!btn) return;
+    els.quickChipsInput.value = btn.dataset.value;
+    settings.quickChips = parseQuickChips(btn.dataset.value);
+    renderBoard();
     saveState();
   });
   els.winnerRuleSeg.addEventListener('click', function (e) {
@@ -1490,6 +1662,8 @@
   syncSettingsUI();
   els.timerSetFields.hidden = timer.mode !== 'countdown';
   setSegActive(els.timerModeSeg, 'mode', timer.mode);
+  if (!els.timerQuickInput.value) els.timerQuickInput.value = secondsToMicrowaveInput(timer.totalSeconds);
+  updateTimerQuickPreview();
   renderBoard();
   updateTimerDisplay();
   if (timer.running) { cancelAnimationFrame(timerRAF); timerRAF = requestAnimationFrame(timerTick); }
