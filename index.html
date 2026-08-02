@@ -379,22 +379,14 @@
     outline: 2px solid var(--blue);
     outline-offset: 3px;
   }
-  .score, .score-input {
+  .score {
     font-size: calc(3rem * var(--text-scale, 1));
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--text);
     line-height: 1;
     text-align: center;
-  }
-  .score { min-width: 1.4ch; }
-  .score-input {
     min-width: 1.4ch;
-    width: calc(3.4ch + 8px);
-    background: var(--panel-2);
-    border: 1.5px solid var(--blue);
-    border-radius: 8px;
-    outline: none;
   }
   .edit-hint {
     position: absolute;
@@ -449,8 +441,12 @@
     flex: 0 0 auto;
     border: none;
     border-radius: 999px;
-    padding: calc(5px * var(--card-scale, 1)) calc(10px * var(--card-scale, 1));
-    font-size: calc(0.72rem * var(--text-scale, 1));
+    /* Sized off --text-scale (floor 0.62), not --card-scale (floor 0.4) —
+       these are tap targets carrying real information (a number), not
+       decorative chrome, so they shouldn't shrink as aggressively as
+       borders/padding do at the 12-player extreme. */
+    padding: calc(7px * var(--text-scale, 1)) calc(13px * var(--text-scale, 1));
+    font-size: calc(0.85rem * var(--text-scale, 1));
     font-weight: 650;
     font-variant-numeric: tabular-nums;
     color: #fff;
@@ -459,20 +455,6 @@
   .chip:active { transform: scale(0.9); }
   .chip-pos { background: var(--green); }
   .chip-neg { background: var(--red); }
-
-  /* Lives inside .chip-row alongside preset chips; same pill sizing so it
-     scrolls with them, just circular with an icon instead of text. */
-  .calc-btn {
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: var(--panel-2);
-    color: var(--text-dim);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: calc(5px * var(--card-scale, 1));
-  }
-  .calc-btn svg { width: calc(15px * var(--card-scale, 1)); height: calc(15px * var(--card-scale, 1)); }
 
   /* ---------- Bottom bar ---------- */
   .bottombar {
@@ -600,9 +582,27 @@
   .setting-row.stacked > span { font-size: 0.98rem; }
   .chip-slots {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
+  .chip-slot {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .chip-slot-sign {
+    flex: 0 0 auto;
+    width: 30px;
+    border: none;
+    background: var(--panel-3);
+    color: var(--text-dim);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .chip-slot-sign[data-sign="-1"] { color: var(--red); }
+  .chip-slot-sign[data-sign="1"] { color: var(--green); }
   .chip-slot-input {
     width: 100%;
     min-width: 0;
@@ -610,9 +610,8 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     text-align: center;
-    background: var(--panel-2);
+    background: transparent;
     border: none;
-    border-radius: 8px;
     color: var(--text);
     padding: 9px 2px;
   }
@@ -663,7 +662,8 @@
   }
   .calc-op { padding: 0 4px; }
   .calc-eq { padding: 0 6px; }
-  .calc-sign-seg button { font-size: 0.95rem; padding: 10px; }
+  .calc-mode-seg button { font-size: 0.88rem; padding: 10px; }
+  .calc-sign-seg button { font-size: 1.05rem; font-weight: 700; padding: 10px; }
   .calc-keypad {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -773,12 +773,12 @@
           <div class="setting-row stacked">
             <span>Score presets (up to 6, positive or negative)</span>
             <div class="chip-slots" id="chipSlots">
-              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 1" data-slot="0">
-              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 2" data-slot="1">
-              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 3" data-slot="2">
-              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 4" data-slot="3">
-              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 5" data-slot="4">
-              <input class="chip-slot-input" type="text" inputmode="text" maxlength="4" aria-label="Preset 6" data-slot="5">
+              <div class="chip-slot"><button type="button" class="chip-slot-sign" data-slot="0" data-sign="1" aria-label="Preset 1 sign">+</button><input class="chip-slot-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" aria-label="Preset 1 value" data-slot="0"></div>
+              <div class="chip-slot"><button type="button" class="chip-slot-sign" data-slot="1" data-sign="1" aria-label="Preset 2 sign">+</button><input class="chip-slot-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" aria-label="Preset 2 value" data-slot="1"></div>
+              <div class="chip-slot"><button type="button" class="chip-slot-sign" data-slot="2" data-sign="1" aria-label="Preset 3 sign">+</button><input class="chip-slot-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" aria-label="Preset 3 value" data-slot="2"></div>
+              <div class="chip-slot"><button type="button" class="chip-slot-sign" data-slot="3" data-sign="1" aria-label="Preset 4 sign">+</button><input class="chip-slot-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" aria-label="Preset 4 value" data-slot="3"></div>
+              <div class="chip-slot"><button type="button" class="chip-slot-sign" data-slot="4" data-sign="1" aria-label="Preset 5 sign">+</button><input class="chip-slot-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" aria-label="Preset 5 value" data-slot="4"></div>
+              <div class="chip-slot"><button type="button" class="chip-slot-sign" data-slot="5" data-sign="1" aria-label="Preset 6 sign">+</button><input class="chip-slot-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" aria-label="Preset 6 value" data-slot="5"></div>
             </div>
             <div class="suggestion-row" id="quickChipsSuggestions">
               <button type="button" class="suggestion-chip" data-value="1, 2, 3">Basketball</button>
@@ -847,23 +847,27 @@
 </div>
 
 <div class="sheet-overlay" id="calcOverlay" inert>
-  <div class="sheet calc-sheet" role="dialog" aria-label="Add or subtract from score">
+  <div class="sheet calc-sheet" role="dialog" aria-label="Edit score">
     <div class="sheet-grabber"></div>
     <div class="sheet-header">
       <h2 id="calcPlayerName">Player</h2>
       <button class="icon-btn" id="calcCloseBtn" aria-label="Close"></button>
     </div>
     <div class="calc-body">
-      <div class="calc-preview">
+      <div class="seg calc-mode-seg" id="calcModeSeg">
+        <button data-mode="set" class="active">Set score</button>
+        <button data-mode="adjust">Add / Subtract</button>
+      </div>
+      <div class="calc-preview" id="calcPreview">
         <span id="calcBase">0</span>
         <span class="calc-op" id="calcOpDisplay">+</span>
         <span id="calcEntry">0</span>
-        <span class="calc-eq">=</span>
+        <span class="calc-eq" id="calcEqSpan">=</span>
         <span id="calcResult">0</span>
       </div>
       <div class="seg calc-sign-seg" id="calcSignSeg">
-        <button data-sign="1" class="active">+ Add</button>
-        <button data-sign="-1">− Subtract</button>
+        <button data-sign="1" class="active">+</button>
+        <button data-sign="-1">−</button>
       </div>
       <div class="calc-keypad" id="calcKeypad">
         <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
@@ -903,10 +907,6 @@
     pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
     clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>',
     stopwatch: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.3V13l2.4 1.9"/><path d="M9.5 2.3h5"/><path d="M12 2.3V5"/>',
-    calculator: '<rect x="5" y="2" width="14" height="20" rx="2.5"/><rect x="7.5" y="4.5" width="9" height="4" rx="0.6" fill="currentColor" stroke="none"/>' +
-      '<circle cx="8.5" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12.5" r="1" fill="currentColor" stroke="none"/>' +
-      '<circle cx="8.5" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="16" r="1" fill="currentColor" stroke="none"/>' +
-      '<circle cx="8.5" cy="19.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="19.5" r="1" fill="currentColor" stroke="none"/>',
     backspace: '<path d="M9 4.5h11a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H9l-6.5-7.5L9 4.5z"/><path d="M13.5 9.5l5 5"/><path d="M18.5 9.5l-5 5"/>'
   };
   function svgIcon(name, strokeWidth) {
@@ -922,10 +922,12 @@
    'closeSettingsBtn', 'scoreStepSeg', 'chipSlots', 'quickChipsSuggestions',
    'allowNegativeToggle', 'winnerRuleSeg',
    'turnTrackingToggle', 'soundToggle', 'vibrationToggle', 'keepAwakeToggle', 'themeSeg',
-   'resetAllBtn', 'calcOverlay', 'calcPlayerName', 'calcCloseBtn', 'calcBase', 'calcOpDisplay',
-   'calcEntry', 'calcResult', 'calcSignSeg', 'calcKeypad', 'calcBackBtn', 'calcApplyBtn'
+   'resetAllBtn', 'calcOverlay', 'calcPlayerName', 'calcCloseBtn', 'calcModeSeg', 'calcBase',
+   'calcOpDisplay', 'calcEqSpan', 'calcEntry', 'calcResult', 'calcSignSeg', 'calcKeypad',
+   'calcBackBtn', 'calcApplyBtn'
   ].forEach(function (id) { els[id] = document.getElementById(id); });
   var chipSlotInputs = Array.prototype.slice.call(document.querySelectorAll('.chip-slot-input'));
+  var chipSlotSigns = Array.prototype.slice.call(document.querySelectorAll('.chip-slot-sign'));
 
   // Static icon-only buttons: fill in their SVG once at startup.
   els.timerToggleBtn.innerHTML = svgIcon('play');
@@ -1259,10 +1261,13 @@
     var g = computeGrid(players.length, w, h);
     els.board.style.gridTemplateColumns = 'repeat(' + g.cols + ', 1fr)';
     els.board.style.gridTemplateRows = 'repeat(' + g.rows + ', 1fr)';
-    // The calculator + presets row is always present now (the calculator
-    // button lives there regardless of whether any presets are configured),
-    // so every card reserves space for it, not just ones with chips set.
-    var layoutScale = clamp(Math.min(g.cellW / 250, g.cellH / 260), 0.4, 1.3);
+    // Preset chips add a row to every card, so the "ideal" card height
+    // used to size everything is taller whenever any are configured. The
+    // calculator no longer lives in this row (it's reached by tapping the
+    // score directly), so cards with no presets go back to the compact
+    // height.
+    var idealCardH = settings.quickChips.length ? 260 : 220;
+    var layoutScale = clamp(Math.min(g.cellW / 250, g.cellH / idealCardH), 0.4, 1.3);
     // Text should shrink more gently than padding/buttons do, so names and
     // scores stay legible even when many players make cards physically small.
     var textScale = clamp(layoutScale, 0.62, 1.3);
@@ -1409,9 +1414,18 @@
       editHint.innerHTML = svgIcon('pencil', 2.2);
       scoreTap.appendChild(scoreEl);
       scoreTap.appendChild(editHint);
-      scoreTap.addEventListener('click', function () { beginScoreEdit(p, scoreTap, scoreEl); });
+      scoreTap.addEventListener('click', function () { openCalculator(p, scoreEl, 'set'); });
       scoreTap.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); beginScoreEdit(p, scoreTap, scoreEl); }
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          // Without this, the same keydown bubbles to the document-level
+          // calculator shortcut listener right after openCalculator() runs
+          // — which by then sees the overlay's 'open' class already set
+          // and treats this same Enter as "confirm inside the calculator",
+          // applying and closing it in the same dispatch it just opened in.
+          e.stopPropagation();
+          openCalculator(p, scoreEl, 'set');
+        }
       });
 
       var plusBtn = document.createElement('button');
@@ -1445,31 +1459,23 @@
       scoreWrap.appendChild(plusBtn);
       card.appendChild(scoreWrap);
 
-      // Calculator + preset chips share one horizontally-scrolling row
-      // rather than competing for score-wrap's width budget. score-wrap's
-      // 3 fixed-size circles were sized to just fit even the smallest
-      // (12-player) cards; a 4th element there overflowed the card itself
-      // at that extreme, leaving the button rendered but invisible/
-      // untappable. The chip row already has scroll+fade built in as an
-      // overflow safety valve, so anything added there degrades to "scroll
-      // to reach it" instead of "invisible."
-      var toolRow = document.createElement('div');
-      toolRow.className = 'chip-row';
-      var calcBtn = document.createElement('button');
-      calcBtn.className = 'chip calc-btn';
-      calcBtn.innerHTML = svgIcon('calculator', 1.6);
-      calcBtn.setAttribute('aria-label', 'Add or subtract a custom amount for ' + p.name);
-      calcBtn.addEventListener('click', function () { openCalculator(p, scoreEl); });
-      toolRow.appendChild(calcBtn);
-      settings.quickChips.forEach(function (val) {
-        var chip = document.createElement('button');
-        chip.className = 'chip ' + (val < 0 ? 'chip-neg' : 'chip-pos');
-        chip.textContent = (val > 0 ? '+' : '') + val;
-        chip.setAttribute('aria-label', (val > 0 ? 'Add ' : 'Subtract ') + Math.abs(val));
-        chip.addEventListener('click', function () { snapshot(); applyDelta(p, scoreEl, val); });
-        toolRow.appendChild(chip);
-      });
-      card.appendChild(toolRow);
+      // The calculator lives behind tapping the score itself now (see
+      // openCalculator below), so this row is presets only — and can go
+      // back to being conditional, since there's no button that needs a
+      // guaranteed home here regardless of whether any presets are set.
+      if (settings.quickChips.length) {
+        var chipRow = document.createElement('div');
+        chipRow.className = 'chip-row';
+        settings.quickChips.forEach(function (val) {
+          var chip = document.createElement('button');
+          chip.className = 'chip ' + (val < 0 ? 'chip-neg' : 'chip-pos');
+          chip.textContent = (val > 0 ? '+' : '') + val;
+          chip.setAttribute('aria-label', (val > 0 ? 'Add ' : 'Subtract ') + Math.abs(val));
+          chip.addEventListener('click', function () { snapshot(); applyDelta(p, scoreEl, val); });
+          chipRow.appendChild(chip);
+        });
+        card.appendChild(chipRow);
+      }
 
       els.board.appendChild(card);
     });
@@ -1485,68 +1491,21 @@
     scheduleRelayout();
   }
 
-  function beginScoreEdit(p, scoreTap, scoreEl) {
-    if (scoreTap.querySelector('.score-input')) return;
-    snapshot();
-    var input = document.createElement('input');
-    // type="text" (not "number") because number inputs don't support the
-    // selection API in any browser — .select() silently no-ops on them,
-    // which broke "highlight on entry".
-    //
-    // inputmode="numeric" requests a digits-only on-screen keyboard, and
-    // whether that includes a minus key is inconsistent across platforms
-    // (WebKit only shows one with a matching `pattern` hint; Android's
-    // numeric keypad generally has no minus key at all, pattern or not).
-    // Rather than lean on a keyboard-specific trick that can't be verified
-    // everywhere, only request the restrictive numeric keypad when a minus
-    // sign could never be needed. When negatives are allowed, fall back to
-    // the default text keyboard, which has "-" on every platform.
-    input.type = 'text';
-    if (settings.allowNegative) {
-      input.inputMode = 'text';
-    } else {
-      input.inputMode = 'numeric';
-      input.pattern = '[0-9]*';
-    }
-    input.className = 'score-input';
-    input.value = p.score;
-    scoreTap.replaceChild(input, scoreEl);
-    input.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
-    input.focus();
-    input.select();
-
-    function commit() {
-      var val = parseInt(input.value, 10);
-      if (isNaN(val)) val = p.score;
-      if (!settings.allowNegative) val = Math.max(0, val);
-      p.score = val;
-      scoreEl.textContent = p.score;
-      scoreTap.setAttribute('aria-label', 'Edit score, currently ' + p.score);
-      if (input.parentNode) scoreTap.replaceChild(scoreEl, input);
-      updateCrowns();
-      saveState();
-    }
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', function (e) {
-      // Without stopping propagation, Enter/Escape bubble up to scoreTap's
-      // own keydown handler (added for keyboard access when the div itself
-      // is focused) — which would immediately reopen a fresh edit right
-      // after this one commits, since by the time the bubbled event
-      // arrives, .blur() has already run commit() and removed this input.
-      e.stopPropagation();
-      if (e.key === 'Enter') input.blur();
-      if (e.key === 'Escape') { input.value = p.score; input.blur(); }
-    });
-  }
-
-  // ---------- Calculator (relative add/subtract entry) ----------
-  // Complements the fixed presets: build any signed amount digit by digit
-  // and apply it as a delta, rather than needing a preset for every
-  // possible value or computing the new absolute total yourself — the
-  // main gap-filler for games like darts, where a turn can subtract
-  // almost any amount up to 180.
+  // ---------- Calculator (tap-the-score editor: set or adjust) ----------
+  // Tapping a score opens this in "Set score" mode by default (typing a
+  // whole new value — the old behavior), with "Add / Subtract" one tap
+  // away for relative entry (the gap-filler presets can't cover, e.g.
+  // darts, where a turn can subtract almost any amount up to 180). One
+  // entry point, one keypad, instead of a separate inline text field plus
+  // a separate calculator icon competing for space on every card.
+  //
+  // This also sidesteps the on-screen-keyboard-has-no-minus-key problem
+  // entirely: entry is built from the app's own keypad buttons, never a
+  // native <input>, so there's no OS virtual keyboard involved at all.
+  // Sign is chosen via an explicit +/- toggle instead of typing "-".
   var calcPlayer = null;
   var calcScoreEl = null;
+  var calcMode = 'set';   // 'set' | 'adjust'
   var calcSign = 1;
   var calcEntry = '0';
   var calcReturnFocus = null;
@@ -1554,16 +1513,30 @@
   function calcEnteredNumber() { return parseInt(calcEntry, 10) || 0; }
   function calcResultValue() {
     if (!calcPlayer) return 0;
-    var result = calcPlayer.score + calcSign * calcEnteredNumber();
+    var signed = calcSign * calcEnteredNumber();
+    var result = calcMode === 'set' ? signed : calcPlayer.score + signed;
     if (!settings.allowNegative) result = Math.max(0, result);
     return result;
   }
   function updateCalcDisplay() {
     if (!calcPlayer) return;
     els.calcBase.textContent = calcPlayer.score;
-    els.calcOpDisplay.textContent = calcSign > 0 ? '+' : '−';
-    els.calcEntry.textContent = calcEntry;
+    if (calcMode === 'set') {
+      els.calcOpDisplay.textContent = '→';
+      els.calcEntry.hidden = true;
+      els.calcEqSpan.hidden = true;
+    } else {
+      els.calcOpDisplay.textContent = calcSign > 0 ? '+' : '−';
+      els.calcEntry.textContent = calcEnteredNumber();
+      els.calcEntry.hidden = false;
+      els.calcEqSpan.hidden = false;
+    }
     els.calcResult.textContent = calcResultValue();
+  }
+  function setCalcMode(mode) {
+    calcMode = mode;
+    setSegActive(els.calcModeSeg, 'mode', mode);
+    updateCalcDisplay();
   }
   function setCalcSign(sign) {
     calcSign = sign;
@@ -1583,13 +1556,15 @@
     updateCalcDisplay();
   }
 
-  function openCalculator(p, scoreEl) {
+  function openCalculator(p, scoreEl, mode) {
     calcPlayer = p;
     calcScoreEl = scoreEl;
+    calcMode = mode || 'set';
     calcSign = 1;
     calcEntry = '0';
     calcReturnFocus = document.activeElement;
     els.calcPlayerName.textContent = p.name;
+    setSegActive(els.calcModeSeg, 'mode', calcMode);
     setSegActive(els.calcSignSeg, 'sign', 1);
     updateCalcDisplay();
     els.calcOverlay.classList.add('open');
@@ -1603,9 +1578,17 @@
     if (calcReturnFocus && typeof calcReturnFocus.focus === 'function') calcReturnFocus.focus();
   }
   function applyCalculator() {
-    if (!calcPlayer || calcEnteredNumber() === 0) { closeCalculator(); return; }
+    if (!calcPlayer) { closeCalculator(); return; }
+    // Entering nothing in Add/Subtract mode is a no-op (adding 0 changes
+    // nothing) — skip the snapshot so it doesn't clutter undo history.
+    // In Set mode, 0 is a legitimate target value, so it still applies.
+    if (calcMode === 'adjust' && calcEnteredNumber() === 0) { closeCalculator(); return; }
     snapshot();
-    applyDelta(calcPlayer, calcScoreEl, calcSign * calcEnteredNumber());
+    calcPlayer.score = calcResultValue();
+    calcScoreEl.textContent = calcPlayer.score;
+    if (calcScoreEl.parentElement) calcScoreEl.parentElement.setAttribute('aria-label', 'Edit score, currently ' + calcPlayer.score);
+    updateCrowns();
+    saveState();
     closeCalculator();
   }
 
@@ -1692,16 +1675,31 @@
   // editing one slot doesn't shuffle the others' positions. The slots may
   // have gaps (a cleared middle slot); settings.quickChips itself stays a
   // compact array, read fresh from all 6 inputs whenever any of them change.
+  //
+  // Each slot splits sign from magnitude: a dedicated +/- toggle button
+  // plus a digits-only input (inputmode="numeric", no minus in the
+  // pattern). Typing "-" on a virtual numeric keypad isn't reliable across
+  // platforms — the toggle makes negative presets work everywhere without
+  // depending on any OS keyboard variant having a minus key at all.
   function fillChipSlots(values) {
     chipSlotInputs.forEach(function (input, i) {
-      input.value = values[i] !== undefined ? String(values[i]) : '';
+      var v = values[i];
+      input.value = v !== undefined ? String(Math.abs(v)) : '';
+    });
+    chipSlotSigns.forEach(function (btn, i) {
+      var v = values[i];
+      var sign = (v !== undefined && v < 0) ? -1 : 1;
+      btn.dataset.sign = String(sign);
+      btn.textContent = sign === 1 ? '+' : '−';
     });
   }
   function readChipSlots() {
-    return chipSlotInputs
-      .map(function (input) { return parseInt(input.value.trim(), 10); })
-      .filter(function (n) { return !isNaN(n) && n !== 0; })
-      .slice(0, 6);
+    return chipSlotInputs.map(function (input, i) {
+      var mag = parseInt(input.value.trim(), 10);
+      if (isNaN(mag) || mag === 0) return null;
+      var sign = chipSlotSigns[i].dataset.sign === '-1' ? -1 : 1;
+      return sign * mag;
+    }).filter(function (n) { return n !== null; }).slice(0, 6);
   }
 
   // ---------- Persistence ----------
@@ -1825,6 +1823,10 @@
 
   els.calcCloseBtn.addEventListener('click', closeCalculator);
   els.calcOverlay.addEventListener('click', function (e) { if (e.target === els.calcOverlay) closeCalculator(); });
+  els.calcModeSeg.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-mode]');
+    if (btn) setCalcMode(btn.dataset.mode);
+  });
   els.calcSignSeg.addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-sign]');
     if (btn) setCalcSign(Number(btn.dataset.sign));
@@ -1858,6 +1860,16 @@
   chipSlotInputs.forEach(function (input) {
     input.addEventListener('focus', function (e) { e.target.select(); keepFieldVisible(e.target); });
     input.addEventListener('change', function () {
+      settings.quickChips = readChipSlots();
+      renderBoard();
+      saveState();
+    });
+  });
+  chipSlotSigns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var next = btn.dataset.sign === '1' ? '-1' : '1';
+      btn.dataset.sign = next;
+      btn.textContent = next === '1' ? '+' : '−';
       settings.quickChips = readChipSlots();
       renderBoard();
       saveState();

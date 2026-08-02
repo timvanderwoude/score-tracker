@@ -8,9 +8,8 @@ Live: https://timvanderwoude.github.io/score-tracker
 
 - Add/remove players (up to 12), each with a running score and its own accent color
 - Score grid auto-fits the screen — cards resize to whatever grid keeps everyone visible without scrolling, in portrait or landscape
-- Tap +/− to step a score, press-and-hold to accelerate, or tap the number to type an exact value
+- Tap +/− to step a score, press-and-hold to accelerate, or tap the number to open a keypad that can either set it to an exact value or add/subtract any amount
 - Up to 6 customizable preset chips per card (any positive or negative value) for games that don't score in single fixed steps (e.g. 2/3-point baskets, cribbage's odd point values, Yahtzee category scores, darts subtracting large amounts) — configurable in Settings, with a few example presets to start from
-- A calculator on every card for the amounts your presets don't cover: pick + or −, key in any number, and it's added to or subtracted from the current score in one step
 - Timer with Countdown and Stopwatch modes (start/pause/reset), tucked into a compact drawer so it doesn't eat board space; duration is set microwave-style (type "130" for 1:30) instead of scrolling two pickers
 - Multi-level undo/redo covers every destructive action (score changes, add/remove player, reset) — no confirmation dialogs needed
 - Turn tracking with a "Next turn" indicator, and an optional leader crown (highest or lowest score wins)
