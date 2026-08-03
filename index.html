@@ -1029,6 +1029,13 @@
   var redoStack = [];
   var historyLog = [];          // human-readable log, shown in the History view
   var redoHistoryBuffer = [];   // mirrors redoStack for historyLog entries
+  // How many historyLog entries the top of undoStack/redoStack pushed —
+  // some actions (a score change that also auto-advances the turn) log
+  // two entries (a "turn" header plus the "score" row) for one undo step,
+  // so undo()/redo() need to move that many historyLog entries at once to
+  // stay in sync, not always exactly one.
+  var undoLogCounts = [];
+  var redoLogCounts = [];
   var audioCtx = null;
 
   // ---------- Utilities ----------
@@ -1139,35 +1146,48 @@
   // sync even though history can hold older entries undo has already
   // forgotten — trimming only ever removes from the front of either array,
   // which never disturbs that correspondence at the end.
+  // logEntry may be a single entry or an array of entries that all belong
+  // to this one atomic action (e.g. a "turn changed" entry immediately
+  // followed by the "score" entry that caused it) — pushed together here,
+  // in the order given, so a turn-changed header always lands before the
+  // row that triggered it rather than after.
   function snapshot(logEntry) {
     undoStack.push(currentSnapshot());
-    if (undoStack.length > 25) undoStack.shift();
+    var entries = Array.isArray(logEntry) ? logEntry : (logEntry ? [logEntry] : []);
+    undoLogCounts.push(entries.length);
+    if (undoStack.length > 25) { undoStack.shift(); undoLogCounts.shift(); }
     redoStack = [];
+    redoLogCounts = [];
     redoHistoryBuffer = [];
     updateHistoryButtons();
-    if (logEntry) {
-      logEntry.time = Date.now();
-      historyLog.push(logEntry);
-      if (historyLog.length > 500) historyLog.shift();
-    }
+    entries.forEach(function (e) { e.time = Date.now(); historyLog.push(e); });
+    if (historyLog.length > 500) historyLog.splice(0, historyLog.length - 500);
   }
   function undo() {
     var snap = undoStack.pop();
     if (!snap) return;
+    var count = undoLogCounts.pop() || 0;
     redoStack.push(currentSnapshot());
+    redoLogCounts.push(count);
     applySnapshot(snap);
     updateHistoryButtons();
-    var poppedLog = historyLog.pop();
-    if (poppedLog) redoHistoryBuffer.push(poppedLog);
+    for (var i = 0; i < count; i++) {
+      var poppedLog = historyLog.pop();
+      if (poppedLog) redoHistoryBuffer.push(poppedLog);
+    }
   }
   function redo() {
     var snap = redoStack.pop();
     if (!snap) return;
+    var count = redoLogCounts.pop() || 0;
     undoStack.push(currentSnapshot());
+    undoLogCounts.push(count);
     applySnapshot(snap);
     updateHistoryButtons();
-    var restoredLog = redoHistoryBuffer.pop();
-    if (restoredLog) historyLog.push(restoredLog);
+    for (var i = 0; i < count; i++) {
+      var restoredLog = redoHistoryBuffer.pop();
+      if (restoredLog) historyLog.push(restoredLog);
+    }
   }
 
   // ---------- Timer ----------
@@ -1532,6 +1552,7 @@
       // on every tick.
       function wireStepButton(btn, signMultiplier) {
         var histEntry = null;
+        var willAdvanceTurn = false;
         var hold = beginPressHold(function () {
           var delta = signMultiplier * settings.scoreStep;
           applyDelta(p, scoreEl, delta);
@@ -1539,14 +1560,15 @@
         });
         function begin() {
           histEntry = { type: 'score', playerName: p.name, delta: 0 };
-          snapshot(histEntry);
+          willAdvanceTurn = shouldAutoAdvanceTurn(p);
+          snapshot(willAdvanceTurn ? [{ type: 'turn', playerName: p.name }, histEntry] : histEntry);
           hold.start();
         }
         function finish() {
           hold.stop();
           if (histEntry) {
             histEntry = null;
-            if (maybeAutoAdvanceTurn(p)) { updateTurnIndicator(); saveState(); }
+            if (willAdvanceTurn) { advanceTurnTo(p); updateTurnIndicator(); saveState(); }
           }
         }
         btn.addEventListener('pointerdown', function (e) { e.preventDefault(); begin(); });
@@ -1569,10 +1591,11 @@
           if (e.detail === 0) {
             var delta = signMultiplier * settings.scoreStep;
             var entry = { type: 'score', playerName: p.name, delta: delta };
-            snapshot(entry);
+            var willAdvance = shouldAutoAdvanceTurn(p);
+            snapshot(willAdvance ? [{ type: 'turn', playerName: p.name }, entry] : entry);
             applyDelta(p, scoreEl, delta);
             entry.resultingScore = p.score;
-            if (maybeAutoAdvanceTurn(p)) { updateTurnIndicator(); saveState(); }
+            if (willAdvance) { advanceTurnTo(p); updateTurnIndicator(); saveState(); }
           }
         });
       }
@@ -1598,10 +1621,11 @@
           chip.setAttribute('aria-label', (val > 0 ? 'Add ' : 'Subtract ') + Math.abs(val));
           chip.addEventListener('click', function () {
             var entry = { type: 'score', playerName: p.name, delta: val };
-            snapshot(entry);
+            var willAdvance = shouldAutoAdvanceTurn(p);
+            snapshot(willAdvance ? [{ type: 'turn', playerName: p.name }, entry] : entry);
             applyDelta(p, scoreEl, val);
             entry.resultingScore = p.score;
-            if (maybeAutoAdvanceTurn(p)) { updateTurnIndicator(); saveState(); }
+            if (willAdvance) { advanceTurnTo(p); updateTurnIndicator(); saveState(); }
           });
           chipRow.appendChild(chip);
         });
@@ -1717,13 +1741,14 @@
     var entry = calcMode === 'set'
       ? { type: 'set', playerName: calcPlayer.name }
       : { type: 'score', playerName: calcPlayer.name, delta: calcSign * calcEnteredNumber() };
-    snapshot(entry);
+    var willAdvance = shouldAutoAdvanceTurn(calcPlayer);
+    snapshot(willAdvance ? [{ type: 'turn', playerName: calcPlayer.name }, entry] : entry);
     calcPlayer.score = calcResultValue();
     entry.resultingScore = calcPlayer.score;
     calcScoreEl.textContent = calcPlayer.score;
     if (calcScoreEl.parentElement) calcScoreEl.parentElement.setAttribute('aria-label', 'Edit score, currently ' + calcPlayer.score);
     updateCrowns();
-    if (maybeAutoAdvanceTurn(calcPlayer)) updateTurnIndicator();
+    if (willAdvance) { advanceTurnTo(calcPlayer); updateTurnIndicator(); }
     saveState();
     closeCalculator();
   }
@@ -1799,20 +1824,29 @@
   // advanced from wherever the turn indicator was already sitting, so
   // scoring a player who wasn't the highlighted one moved the turn to some
   // unrelated third player instead of following the one you actually
-  // scored). Deliberately doesn't call snapshot() itself — it always runs
-  // as part of an already-open score-change action, so folding the turn
-  // change into that SAME undo entry (rather than a second one) means one
-  // undo reverts the score and the turn move together, matching what the
-  // user actually did as a single action. currentTurnId is already part
-  // of what snapshot() captures, so this is safe to just mutate.
-  function maybeAutoAdvanceTurn(scoredPlayer) {
-    if (!settings.turnTracking || !settings.autoAdvanceTurn) return false;
-    if (!scoredPlayer || scoredPlayer.id === currentTurnId) return false;
+  // scored).
+  //
+  // Split into a pure check (shouldAutoAdvanceTurn) and the mutation
+  // (advanceTurnTo) because the decision has to be known *before* the
+  // score's own history entry is built: a caller that will advance the
+  // turn needs to put the "X's turn" log entry ahead of the "+N" entry in
+  // the same snapshot() call, so the header shows up before the row that
+  // triggered it instead of after (which is what a single combined
+  // "check-and-log" function produced — the turn entry could only be
+  // appended once the score entry had already been pushed).
+  function shouldAutoAdvanceTurn(scoredPlayer) {
+    return !!(settings.turnTracking && settings.autoAdvanceTurn &&
+      scoredPlayer && scoredPlayer.id !== currentTurnId);
+  }
+  // Deliberately doesn't call snapshot() itself — it always runs as part
+  // of an already-open score-change action, so folding the turn change
+  // into that SAME undo entry (rather than a second one) means one undo
+  // reverts the score and the turn move together, matching what the user
+  // actually did as a single action. currentTurnId is already part of
+  // what snapshot() captures, so this is safe to just mutate.
+  function advanceTurnTo(scoredPlayer) {
     currentTurnId = scoredPlayer.id;
     tapFeedback();
-    historyLog.push({ type: 'turn', playerName: scoredPlayer.name, time: Date.now() });
-    if (historyLog.length > 500) historyLog.shift();
-    return true;
   }
 
   // ---------- Settings UI ----------
@@ -1957,7 +1991,8 @@
         players: players, playerCounter: playerCounter, currentTurnId: currentTurnId,
         timer: timerPayload,
         undoStack: undoStack, redoStack: redoStack,
-        historyLog: historyLog, redoHistoryBuffer: redoHistoryBuffer
+        historyLog: historyLog, redoHistoryBuffer: redoHistoryBuffer,
+        undoLogCounts: undoLogCounts, redoLogCounts: redoLogCounts
       }));
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch (e) {
@@ -2029,6 +2064,13 @@
         redoStack = Array.isArray(state.redoStack) ? state.redoStack : [];
         historyLog = Array.isArray(state.historyLog) ? state.historyLog : [];
         redoHistoryBuffer = Array.isArray(state.redoHistoryBuffer) ? state.redoHistoryBuffer : [];
+        // Fall back to "1 log entry per action" for state saved before
+        // grouped log entries existed, so old persisted sessions still
+        // undo/redo their history correctly instead of drifting out of sync.
+        undoLogCounts = Array.isArray(state.undoLogCounts) && state.undoLogCounts.length === undoStack.length
+          ? state.undoLogCounts : undoStack.map(function () { return 1; });
+        redoLogCounts = Array.isArray(state.redoLogCounts) && state.redoLogCounts.length === redoStack.length
+          ? state.redoLogCounts : redoStack.map(function () { return 1; });
       } else {
         players = defaultPlayers();
       }
